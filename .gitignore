@@ -1,0 +1,6 @@
+python
+*.py[co]
+__pycache__
+*.tmp
+*.swp
+*.log
