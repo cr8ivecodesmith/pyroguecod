@@ -63,7 +63,7 @@ class Object(object):
 
     """
     def __init__(self, x, y, char, name, color, blocks=False, fighter=None,
-                 ai=None):
+                 ai=None, item=None):
         self.name = name
         self.blocks = blocks
         self.x = x
@@ -80,6 +80,10 @@ class Object(object):
         if self.ai:
             # Let the ai component know its owner.
             self.ai.owner = self
+
+        self.item = item
+        if self.item:
+            self.item.owner = self
 
     def move(self, dx, dy):
         """ Move by the given amount.
@@ -205,6 +209,28 @@ class BasicMonster(object):
                 monster.fighter.attack(player)
 
 
+class Item(object):
+    """ Item Object component.
+
+    Objects that can be picked up and used.
+
+    """
+    owner = None
+
+    def pick_up(self):
+        global inventory
+        global objects
+
+        if len(inventory) >= 26:
+            message('Your inventory is full, cannot pick up {}.'.format(
+                    self.owner.name), libtcod.red)
+        else:
+            inventory.append(self.owner)
+            objects.remove(self.owner)
+            message('You picked up the {}!'.format(self.owner.name),
+                    libtcod.green)
+
+
 class Rect(object):
     """ A rectangle on the map used to characterize a room.
 
@@ -315,7 +341,9 @@ def place_objects(room):
 
         if not is_blocked(x, y):
             # create a healing potion
-            item = Object(x, y, '!', 'healing potion', libtcod.violet)
+            item_component = Item()
+            item = Object(x, y, '!', 'healing potion', libtcod.violet,
+                          item=item_component)
             objects.append(item)
             item.send_to_back()
 
@@ -396,6 +424,8 @@ def handle_keys():
     """
     global game_state
     global key
+    global objects
+    global player
 
     if key.vk == libtcod.KEY_ENTER and key.lalt:
         # Alt+Enter: Toggles fullscreen
@@ -406,15 +436,25 @@ def handle_keys():
 
     # movement
     if game_state == 'playing':
-        if key.vk == libtcod.KEY_UP or key.c == ord('k'):
+        key_char = chr(key.c)
+
+        if key.vk == libtcod.KEY_UP or key_char == 'k':
             player_move_or_attack(0, -1)
-        elif key.vk == libtcod.KEY_DOWN or key.c == ord('j'):
+        elif key.vk == libtcod.KEY_DOWN or key_char == 'j':
             player_move_or_attack(0, 1)
-        elif key.vk == libtcod.KEY_LEFT or key.c == ord('h'):
+        elif key.vk == libtcod.KEY_LEFT or key_char == 'h':
             player_move_or_attack(-1, 0)
-        elif key.vk == libtcod.KEY_RIGHT or key.c == ord('l'):
+        elif key.vk == libtcod.KEY_RIGHT or key_char == 'l':
             player_move_or_attack(1, 0)
         else:
+            # test for other keys
+            if key_char == 'g':
+                # pick up an item
+                for obj in objects:
+                    if obj.x == player.x and obj.y == player.y and obj.item:
+                        obj.item.pick_up()
+                        break
+
             return 'didnt-take-turn'
 
 
@@ -646,6 +686,7 @@ if __name__ == '__main__':
     global game_msgs
     global key
     global mouse
+    global inventory
 
     map = None
     fov_recompute = True
@@ -654,6 +695,7 @@ if __name__ == '__main__':
     game_msgs = []
     key = libtcod.Key()
     mouse = libtcod.Mouse()
+    inventory = []
 
     # Set the font.
     libtcod.console_set_custom_font('terminal10x10.png',
