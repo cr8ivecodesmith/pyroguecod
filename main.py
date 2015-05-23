@@ -19,9 +19,9 @@ ROOM_MIN_SIZE = 6
 MAX_ROOMS = 30
 MAX_ROOM_MONSTERS = 3
 
-FOV_ALGO = 0  # Default FOV algorithm
+FOV_ALGO = 4  # Default FOV algorithm
 FOV_LIGHT_WALLS = True
-TORCH_RADIUS = 4
+TORCH_RADIUS = 3
 
 color_dark_wall = libtcod.Color(0, 0, 100)
 color_light_wall = libtcod.Color(130, 110, 50)
@@ -205,9 +205,12 @@ def handle_keys():
     function:
     - player: Object instance for the main character.
     - fov_recompute: global flag to check if FOV needs to recomputed.
+    - game_state: global game status to determine whether player action should
+      be allowed.
 
     """
     global fov_recompute
+    global game_state
 
     # Use this to make movement turn-based
     key = libtcod.console_wait_for_keypress(True)
@@ -220,24 +223,27 @@ def handle_keys():
         libtcod.console_set_fullscreen(not libtcod.console_is_fullscreen())
     elif key.vk == libtcod.KEY_ESCAPE:
         # Exit the game
-        return True
+        return 'exit'
 
     # movement
-    if libtcod.console_is_key_pressed(libtcod.KEY_UP) or key.c == ord('k'):
-        player.move(0, -1)
-        fov_recompute = True
-    elif (libtcod.console_is_key_pressed(libtcod.KEY_DOWN) or
-          key.c == ord('j')):
-        player.move(0, 1)
-        fov_recompute = True
-    elif (libtcod.console_is_key_pressed(libtcod.KEY_LEFT) or
-          key.c == ord('h')):
-        player.move(-1, 0)
-        fov_recompute = True
-    elif (libtcod.console_is_key_pressed(libtcod.KEY_RIGHT) or
-          key.c == ord('l')):
-        player.move(1, 0)
-        fov_recompute = True
+    if game_state == 'playing':
+        if libtcod.console_is_key_pressed(libtcod.KEY_UP) or key.c == ord('k'):
+            player.move(0, -1)
+            fov_recompute = True
+        elif (libtcod.console_is_key_pressed(libtcod.KEY_DOWN) or
+              key.c == ord('j')):
+            player.move(0, 1)
+            fov_recompute = True
+        elif (libtcod.console_is_key_pressed(libtcod.KEY_LEFT) or
+              key.c == ord('h')):
+            player.move(-1, 0)
+            fov_recompute = True
+        elif (libtcod.console_is_key_pressed(libtcod.KEY_RIGHT) or
+              key.c == ord('l')):
+            player.move(1, 0)
+            fov_recompute = True
+        else:
+            return 'didnt-take-turn'
 
 
 def make_map():
@@ -378,8 +384,15 @@ if __name__ == '__main__':
     """ Initialization of required variables and game loop.
 
     """
+    global map
     global fov_recompute
+    global game_state
+    global player_action
+
+    map = None
     fov_recompute = True
+    game_state = 'playing'
+    player_action = None
 
     # Set the font.
     libtcod.console_set_custom_font('terminal10x10.png',
@@ -428,6 +441,6 @@ if __name__ == '__main__':
             obj.clear()
 
         # handle keys and exit the game if needed
-        exit = handle_keys()
-        if exit:
+        player_action = handle_keys()
+        if player_action == 'exit':
             break
