@@ -19,8 +19,14 @@ ROOM_MAX_SIZE = 10
 ROOM_MIN_SIZE = 6
 MAX_ROOMS = 30
 
+FOV_ALGO = 0  # Default FOV algorithm
+FOV_LIGHT_WALLS = True
+TORCH_RADIUS = 4
+
 color_dark_wall = libtcod.Color(0, 0, 100)
+color_light_wall = libtcod.Color(130, 110, 50)
 color_dark_ground = libtcod.Color(50, 50, 150)
+color_light_ground = libtcod.Color(200, 180, 50)
 
 
 class Tile(object):
@@ -43,6 +49,8 @@ class Object(object):
     Requires the ff. variables to be initialized prior to using this class:
     - con: off-screen console
     - map: global map coordinates
+    - fov_map: FOV mapping.
+
 
     """
 
@@ -62,12 +70,13 @@ class Object(object):
 
     def draw(self):
         """ Set the color then draw the character that represents this object
-            at its position.
+            at its position only when its within the FOV.
 
         """
-        libtcod.console_set_default_foreground(con, self.color)
-        libtcod.console_put_char(con, self.x, self.y, self.char,
-                                 libtcod.BKGND_NONE)
+        if libtcod.map_is_in_fov(fov_map, self.x, self.y):
+            libtcod.console_set_default_foreground(con, self.color)
+            libtcod.console_put_char(con, self.x, self.y, self.char,
+                                     libtcod.BKGND_NONE)
 
     def clear(self):
         """ Erase the character that represents this object.
@@ -149,8 +158,10 @@ def handle_keys():
     Requires the ff. variables to be initialized prior to calling this
     function:
     - player: Object instance for the main character.
+    - fov_recompute: global flag to check if FOV needs to recomputed.
 
     """
+    global fov_recompute
 
     # Use this to make movement turn-based
     key = libtcod.console_wait_for_keypress(True)
@@ -168,15 +179,19 @@ def handle_keys():
     # movement
     if libtcod.console_is_key_pressed(libtcod.KEY_UP) or key.c == ord('k'):
         player.move(0, -1)
+        fov_recompute = True
     elif (libtcod.console_is_key_pressed(libtcod.KEY_DOWN) or
           key.c == ord('j')):
         player.move(0, 1)
+        fov_recompute = True
     elif (libtcod.console_is_key_pressed(libtcod.KEY_LEFT) or
           key.c == ord('h')):
         player.move(-1, 0)
+        fov_recompute = True
     elif (libtcod.console_is_key_pressed(libtcod.KEY_RIGHT) or
           key.c == ord('l')):
         player.move(1, 0)
+        fov_recompute = True
 
 
 def make_map():
@@ -269,22 +284,45 @@ def render_all():
     - objects: game objects list
     - map: global map coordinates
     - con: off-screen console
+    - fov_recompute: global flag to check if FOV needs to recomputed.
+    - fov_map: FOV mapping.
 
     """
-    global color_light_wall
-    global color_light_ground
+    global fov_recompute
+
+    # Recompute the FOV and reset the flag when the player moves.
+    if fov_recompute:
+        fov_recompute = False
+        libtcod.map_compute_fov(fov_map, player.x, player.y, TORCH_RADIUS,
+                                FOV_LIGHT_WALLS, FOV_ALGO)
+
 
     # Go through all the tiles and set their color
     for y in range(MAP_HEIGHT):
         for x in range(MAP_WIDTH):
+            visible = libtcod.map_is_in_fov(fov_map, x, y)
             wall = map[x][y].block_sight
-            if wall:
-                libtcod.console_set_char_background(con, x, y, color_dark_wall,
-                                                    libtcod.BKGND_SET)
+
+            # Use the global dark or light colors depending on the visibility
+            # of the tile.
+            if not visible:
+                if wall:
+                    libtcod.console_set_char_background(con, x, y,
+                                                        color_dark_wall,
+                                                        libtcod.BKGND_SET)
+                else:
+                    libtcod.console_set_char_background(con, x, y,
+                                                        color_dark_ground,
+                                                        libtcod.BKGND_SET)
             else:
-                libtcod.console_set_char_background(con, x, y,
-                                                    color_dark_ground,
-                                                    libtcod.BKGND_SET)
+                if wall:
+                    libtcod.console_set_char_background(con, x, y,
+                                                        color_light_wall,
+                                                        libtcod.BKGND_SET)
+                else:
+                    libtcod.console_set_char_background(con, x, y,
+                                                        color_light_ground,
+                                                        libtcod.BKGND_SET)
 
     # Place the game objects on the off-screen
     for obj in objects:
@@ -298,6 +336,8 @@ if __name__ == '__main__':
     """ Initialization of required variables and game loop.
 
     """
+    global fov_recompute
+    fov_recompute = True
 
     # Set the font.
     libtcod.console_set_custom_font('terminal10x10.png',
@@ -325,6 +365,14 @@ if __name__ == '__main__':
 
     # Generate map coordinates.
     make_map()
+
+    # Initalize the FOV map.
+    fov_map = libtcod.map_new(MAP_WIDTH, MAP_HEIGHT)
+    for y in range(MAP_HEIGHT):
+        for x in range(MAP_WIDTH):
+            libtcod.map_set_properties(fov_map, x, y,
+                                       not map[x][y].block_sight,
+                                       not map[x][y].blocked)
 
     while not libtcod.console_is_window_closed():
 
