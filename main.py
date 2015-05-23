@@ -97,6 +97,32 @@ def create_room(room):
             map[x][y].block_sight = False
 
 
+def create_h_tunnel(x1, x2, y):
+    """ Carve a horizontal tunnel.
+
+    """
+    global map
+
+    # Using the min and max creatively here, otherwise we'll have to determine
+    # which one is larger or smaller to place on the appropriate range args.
+    for x in range(min(x1, x2), max(x1, x2) + 1):
+        map[x][y].blocked = False
+        map[x][y].block_sight = False
+
+
+def create_v_tunnel(y1, y2, x):
+    """ Carve a vertical tunnel.
+
+    """
+    global map
+
+    # Using the min and max creatively here, otherwise we'll have to determine
+    # which one is larger or smaller to place on the appropriate range args.
+    for y in range(min(y1, y2), max(y1, y2) + 1):
+        map[x][y].blocked = False
+        map[x][y].block_sight = False
+
+
 def handle_keys():
     """ Handle key input from the user.
 
@@ -148,6 +174,8 @@ def make_map():
     create_room(room1)
     create_room(room2)
 
+    # Connect them with a horizontal tunnel
+    create_h_tunnel(25, 55, 23)
 
 
 def render_all():
