@@ -15,6 +15,10 @@ LIMIT_FPS = 20
 MAP_WIDTH = 80
 MAP_HEIGHT = 45
 
+ROOM_MAX_SIZE = 10
+ROOM_MIN_SIZE = 6
+MAX_ROOMS = 30
+
 color_dark_wall = libtcod.Color(0, 0, 100)
 color_dark_ground = libtcod.Color(50, 50, 150)
 
@@ -81,6 +85,21 @@ class Rect(object):
         self.y1 = y
         self.x2 = x + w
         self.y2 = y + h
+
+    def center(self):
+        """ All rooms will be connected via their center coordinates.
+
+        """
+        center_x = (self.x1 + self.x2) / 2
+        center_y = (self.y1 + self.y2) / 2
+        return (center_x, center_y)
+
+    def intersect(self, other):
+        """ Return True if this object intersects with the `other` room.
+
+        """
+        return (self.x1 <= other.x2 and self.x2 >= other.x1 and
+                self.y1 <= other.y2 and self.y2 >= other.y1)
 
 
 def create_room(room):
@@ -160,6 +179,15 @@ def make_map():
 
     Creates the global var `map`.
 
+    Room generation logic:
+    Pick a random location for the first room and carve it. Then pick another
+    location for the second; if it doesn't overlap with the first. Connect the
+    two with a tunnel. Repeat.
+
+    Requires the ff. variables to be initialized prior to calling this function:
+    - player: Object instance for the main character.
+    - npc: Object instance for the npc character.
+
     """
     global map
 
@@ -168,14 +196,57 @@ def make_map():
     map = [[Tile(True) for y in range(MAP_HEIGHT)]
            for x in range(MAP_WIDTH)]
 
-    # Create 2 rooms
-    room1 = Rect(20, 15, 10, 15)
-    room2 = Rect(50, 15, 10, 15)
-    create_room(room1)
-    create_room(room2)
+    rooms = []
+    num_rooms = 0
+    for r in range(MAX_ROOMS):
+        # Random width and height
+        w = libtcod.random_get_int(0, ROOM_MIN_SIZE, ROOM_MAX_SIZE)
+        h = libtcod.random_get_int(0, ROOM_MIN_SIZE, ROOM_MAX_SIZE)
 
-    # Connect them with a horizontal tunnel
-    create_h_tunnel(25, 55, 23)
+        # Random pos without going out of map boundaries
+        x = libtcod.random_get_int(0,0, MAP_WIDTH - w - 1)
+        y = libtcod.random_get_int(0,0, MAP_HEIGHT - h - 1)
+
+        new_room = Rect(x, y, w, h)
+
+        # Check if the other rooms intersect with this room.
+        failed = False
+        for other_room in rooms:
+            if new_room.intersect(other_room):
+                failed = True
+                break
+
+        if not failed:
+            # "paint" it to the map.
+            create_room(new_room)
+            new_x, new_y = new_room.center()
+
+            if num_rooms == 0:
+                # If this is the first room, put the player in it.
+                player.x, player.y = (new_x, new_y)
+            else:
+                # All rooms after the first connects to the previous room with
+                # a tunnel.
+
+                # Center coords of the previous room.
+                prev_x, prev_y = rooms[num_rooms - 1].center()
+
+                # Draw a coin (random 0 or 1)
+                if libtcod.random_get_int(0, 0, 1) == 1:
+                    # First move horizontally, then vertically.
+                    create_h_tunnel(prev_x, new_x, prev_y)
+                    create_v_tunnel(prev_y, new_y, new_x)
+                else:
+                    # Do the opposite.
+                    create_v_tunnel(prev_y, new_y, prev_x)
+                    create_h_tunnel(prev_x, new_x, new_y)
+
+            # Finally append the new room to the list
+            rooms.append(new_room)
+            num_rooms += 1
+
+    # Put the npc on a random room.
+    npc.x, npc.y = rooms[libtcod.random_get_int(0, 0, num_rooms)].center()
 
 
 def render_all():
@@ -241,11 +312,6 @@ if __name__ == '__main__':
 
     # Generate map coordinates.
     make_map()
-
-    # Let's place the player and npc in the center of the rooms.
-    player.x, player.y = (25, 23)
-    npc.x, npc.y = (55, 23)
-
 
     while not libtcod.console_is_window_closed():
 
