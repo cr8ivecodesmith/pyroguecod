@@ -55,13 +55,24 @@ class Object(object):
     - fov_map: FOV mapping.
 
     """
-    def __init__(self, x, y, char, name, color, blocks=False):
+    def __init__(self, x, y, char, name, color, blocks=False, fighter=None,
+                 ai=None):
         self.name = name
         self.blocks = blocks
         self.x = x
         self.y = y
         self.char = char
         self.color = color
+
+        self.fighter = figher
+        if self.fighter:
+            # Let the fighter component know its owner.
+            self.fighter.owner = self
+
+        self.ai = ai
+        if self.ai:
+            # Let the ai component know its owner.
+            self.ai.owner = self
 
     def move(self, dx, dy):
         """ Move by the given amount.
@@ -86,6 +97,29 @@ class Object(object):
 
         """
         libtcod.console_put_char(con, self.x, self.y, ' ', libtcod.BKGND_NONE)
+
+
+class Fighter(object):
+    """ Combat-type Object component.
+
+    """
+    owner = None
+
+    def __init__(self, hp, defense, power):
+        self.max_hp = hp
+        self.hp = hp
+        self.defense = defense
+        self.power = power
+
+
+class BasicMonster(object):
+    """ AI Object component for basic monsters
+
+    """
+    owner = None
+
+    def take_turn(self):
+        print('The {} growls!'.format(self.owner.name))
 
 
 class Rect(object):
