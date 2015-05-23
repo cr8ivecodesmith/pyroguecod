@@ -37,6 +37,8 @@ MSG_X = BAR_WIDTH + 2
 MSG_WIDTH = SCREEN_WIDTH - BAR_WIDTH - 2
 MSG_HEIGHT = PANEL_HEIGHT - 1
 
+INVENTORY_WIDTH = 50
+
 color_dark_wall = libtcod.Color(0, 0, 100)
 color_light_wall = libtcod.Color(130, 110, 50)
 color_dark_ground = libtcod.Color(50, 50, 150)
@@ -418,6 +420,68 @@ def monster_death(monster):
     monster.send_to_back()
 
 
+def menu(header, options, width):
+    """ Generic menu builder.
+
+    Defines a list of options to the player.
+
+    """
+    global con
+    global key
+
+    if len(options) > 26:
+        # Make sure we don't get carried away with the menu.
+        raise ValueError('Cannot have a menu with more than 26 options.')
+
+    # Calculate total height for the header (after auto-wrap) and one line per
+    # option.
+    header_height = libtcod.console_get_height_rect(con, 0, 0, width,
+                                                    SCREEN_HEIGHT, header)
+    height = len(options) + header_height
+
+    # Create an off-screen console that represents the menu's window
+    window = libtcod.console_new(width, height)
+
+    # Print the header, with auto-wrap
+    libtcod.console_set_default_foreground(window, libtcod.white)
+    libtcod.console_print_rect_ex(window, 0, 0, width, height,
+                                  libtcod.BKGND_NONE, libtcod.LEFT, header)
+
+    # Print all the options
+    y = header_height
+    letter_index = ord('a')
+    for option_text in options:
+        text = '({}) {}'.format(chr(letter_index), option_text)
+        libtcod.console_print_ex(window, 0, y, libtcod.BKGND_NONE,
+                                 libtcod.LEFT, text)
+        y += 1
+        letter_index += 1
+
+    # Blit the contents of the "window" to the main screen
+    x = SCREEN_WIDTH / 2 - width / 2
+    y = SCREEN_HEIGHT / 2 - height / 2
+    libtcod.console_blit(window, 0, 0, width, height, 0, x, y, 1.0, 0.7)
+
+    # Present the mains screen to the player and wait for a key-press
+    libtcod.console_flush()
+    key = libtcod.console_wait_for_keypress(True)
+
+
+def inventory_menu(header):
+    """ Creates the inventory menu
+
+    """
+    global inventory
+
+    # show an menu with each item of the inventory as an option
+    if not len(inventory):
+        options = ['Inventory is empty.']
+    else:
+        options = [item.name for item in inventory]
+
+    index = menu(header, options, INVENTORY_WIDTH)
+
+
 def handle_keys():
     """ Handle key input from the user.
 
@@ -454,6 +518,10 @@ def handle_keys():
                     if obj.x == player.x and obj.y == player.y and obj.item:
                         obj.item.pick_up()
                         break
+            if key_char == 'i':
+                # show the inventory
+                inventory_menu('Press the key next to an item to use it, or '
+                               'any key to cancel.')
 
             return 'didnt-take-turn'
 
@@ -741,7 +809,7 @@ if __name__ == '__main__':
 
     while not libtcod.console_is_window_closed():
         # Check for mouse of key press events
-        libtcod.sys_check_for_event(libtcod.EVENT_KEY_PRESS|
+        libtcod.sys_check_for_event(libtcod.EVENT_KEY_PRESS |
                                     libtcod.EVENT_MOUSE, key, mouse)
         # Render the screen.
         render_all()
