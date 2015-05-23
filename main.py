@@ -1,27 +1,20 @@
+"""
+PyRogueCOD - A python roguelike experiment using libtcod.
+
+"""
 import libtcodpy as libtcod
 
 
+# Global constants
+
 SCREEN_WIDTH = 80
 SCREEN_HEIGHT = 50
+
 LIMIT_FPS = 20
+
 MAP_WIDTH = 80
 MAP_HEIGHT = 45
 
-# Set the font
-libtcod.console_set_custom_font('arial10x10.png', libtcod.FONT_TYPE_GREYSCALE |
-                                libtcod.FONT_LAYOUT_TCOD)
-
-# Init the main screen
-libtcod.console_init_root(SCREEN_WIDTH, SCREEN_HEIGHT, 'pyroguecod tutorial',
-                          False)
-
-# Init an off-screen console to be used as a buffer
-con = libtcod.console_new(SCREEN_WIDTH, SCREEN_HEIGHT)
-
-# Set FPS. This does not have an effect for turn-based games
-libtcod.sys_set_fps(LIMIT_FPS)
-
-# Set the tile colors
 color_dark_wall = libtcod.Color(0, 0, 100)
 color_dark_ground = libtcod.Color(50, 50, 150)
 
@@ -42,6 +35,9 @@ class Object(object):
 
     Represents the player, monster, an item, the stairs, wall, etc. Its always
     represented by a character on the screen.
+
+    Requires the ff. variables to be initialized prior to using this class:
+    - con: off-screen console
 
     """
 
@@ -74,7 +70,13 @@ class Object(object):
         libtcod.console_put_char(con, self.x, self.y, ' ', libtcod.BKGND_NONE)
 
 
-def handle_keys(player):
+def handle_keys():
+    """ Handle key input from the user.
+
+    Requires the ff. variables to be initialized prior to calling this function:
+    - player: Object instance for the main character.
+
+    """
 
     # Use this to make movement turn-based
     key = libtcod.console_wait_for_keypress(True)
@@ -101,6 +103,11 @@ def handle_keys(player):
 
 
 def make_map():
+    """ Generates the map coordinates
+
+    Creates the global var `map`.
+
+    """
     global map
 
     # Fill map with unblocked tiles
@@ -115,24 +122,76 @@ def make_map():
     map[50][22].block_sight = True
 
 
-def main():
+def render_all():
+    """ Draw the game objects and the map.
+
+    Requires the ff. variables to be initialized prior to calling this function:
+    - objects: game objects list
+    - map: global map coordinates
+    - con: off-screen console
+
+    """
+    global color_light_wall
+    global color_light_ground
+
+    # Go through all the tiles and set their color
+    for y in range(MAP_HEIGHT):
+        for x in range(MAP_WIDTH):
+            wall = map[x][y].block_sight
+            if wall:
+                libtcod.console_set_char_background(con, x, y, color_dark_wall,
+                                                    libtcod.BKGND_SET)
+            else:
+                libtcod.console_set_char_background(con, x, y,
+                                                    color_dark_ground,
+                                                    libtcod.BKGND_SET)
+
+    # Place the game objects on the off-screen
+    for obj in objects:
+        obj.draw()
+
+    # Blit the contents of the off-screen to the main screen
+    libtcod.console_blit(con, 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, 0, 0, 0)
+
+
+if __name__ == '__main__':
+    """ Initialization of required variables and game loop.
+
+    """
+
+    # Set the font.
+    libtcod.console_set_custom_font('arial10x10.png',
+                                    libtcod.FONT_TYPE_GREYSCALE |
+                                    libtcod.FONT_LAYOUT_TCOD)
+
+    # Init the main screen.
+    libtcod.console_init_root(SCREEN_WIDTH, SCREEN_HEIGHT,
+                              'pyroguecod tutorial', False)
+
+    # Init an off-screen console to be used as a buffer.
+    con = libtcod.console_new(SCREEN_WIDTH, SCREEN_HEIGHT)
+
+    # Set FPS. This does not have an effect for turn-based games.
+    libtcod.sys_set_fps(LIMIT_FPS)
+
+    # Create the object representing the player.
     player = Object(SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2, '@', libtcod.white)
+
+    # Create an NPC
     npc = Object(SCREEN_WIDTH / 2 - 5, SCREEN_HEIGHT / 2, '@', libtcod.yellow)
+
+    # Init list of game objects.
     objects = [npc, player]
+
+    # Generate map coordinates.
+    make_map()
+
 
     while not libtcod.console_is_window_closed():
 
-        # Set default off-screen text color to white
-        libtcod.console_set_default_foreground(con, libtcod.white)
+        # Render the screen.
+        render_all()
 
-        # Place the game objects on the off-screen
-        for obj in objects:
-            obj.draw()
-
-        # Blit the contents of the off-screen to the main screen
-        libtcod.console_blit(con, 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, 0, 0, 0)
-
-        # Update the changes to the screen. Always keep this at the bottom.
         libtcod.console_flush()
 
         # Clear characters on the off-screen
@@ -140,10 +199,6 @@ def main():
             obj.clear()
 
         # handle keys and exit the game if needed
-        exit = handle_keys(player)
+        exit = handle_keys()
         if exit:
             break
-
-
-if __name__ == '__main__':
-    main()
