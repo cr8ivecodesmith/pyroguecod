@@ -380,12 +380,7 @@ def handle_keys():
 
     """
     global game_state
-
-    # Use this to make movement turn-based
-    key = libtcod.console_wait_for_keypress(True)
-
-    # Use this instead to make movement real-time
-    # key = libtcod.console_check_for_keypress()
+    global key
 
     if key.vk == libtcod.KEY_ENTER and key.lalt:
         # Alt+Enter: Toggles fullscreen
@@ -396,19 +391,32 @@ def handle_keys():
 
     # movement
     if game_state == 'playing':
-        if libtcod.console_is_key_pressed(libtcod.KEY_UP) or key.c == ord('k'):
+        if key.vk == libtcod.KEY_UP or key.c == ord('k'):
             player_move_or_attack(0, -1)
-        elif (libtcod.console_is_key_pressed(libtcod.KEY_DOWN) or
-              key.c == ord('j')):
+        elif key.vk == libtcod.KEY_DOWN or key.c == ord('j'):
             player_move_or_attack(0, 1)
-        elif (libtcod.console_is_key_pressed(libtcod.KEY_LEFT) or
-              key.c == ord('h')):
+        elif key.vk == libtcod.KEY_LEFT or key.c == ord('h'):
             player_move_or_attack(-1, 0)
-        elif (libtcod.console_is_key_pressed(libtcod.KEY_RIGHT) or
-              key.c == ord('l')):
+        elif key.vk == libtcod.KEY_RIGHT or key.c == ord('l'):
             player_move_or_attack(1, 0)
         else:
             return 'didnt-take-turn'
+
+
+def get_names_under_mouse():
+    """ Return a string of the names of the objects under the mouse and within
+        FOV.
+
+    """
+    global mouse
+    global fov_map
+
+    x, y = (mouse.cx, mouse.cy)
+    names = [o.name for o in objects
+             if o.x == x and o.y == y and libtcod.map_is_in_fov(fov_map, o.x,
+                                                                o.y)]
+    names = ', '.join(names)
+    return names.capitalize()
 
 
 def make_map():
@@ -568,6 +576,11 @@ def render_all():
     render_bar(1, 1, BAR_WIDTH, 'HP', player.fighter.hp, player.fighter.max_hp,
                libtcod.light_red, libtcod.darker_red)
 
+    # Display names of objects under the mouse.
+    libtcod.console_set_default_foreground(panel, libtcod.light_gray)
+    libtcod.console_print_ex(panel, 1, 0, libtcod.BKGND_NONE, libtcod.LEFT,
+                             get_names_under_mouse())
+
     # Blit the contents of the panel to the main screen
     libtcod.console_blit(panel, 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, 0, 0,
                          PANEL_Y)
@@ -616,12 +629,16 @@ if __name__ == '__main__':
     global player
     global panel
     global game_msgs
+    global key
+    global mouse
 
     map = None
     fov_recompute = True
     game_state = 'playing'
     player_action = None
     game_msgs = []
+    key = libtcod.Key()
+    mouse = libtcod.Mouse()
 
     # Set the font.
     libtcod.console_set_custom_font('terminal10x10.png',
@@ -666,6 +683,9 @@ if __name__ == '__main__':
             'Kings.', libtcod.red)
 
     while not libtcod.console_is_window_closed():
+        # Check for mouse of key press events
+        libtcod.sys_check_for_event(libtcod.EVENT_KEY_PRESS|
+                                    libtcod.EVENT_MOUSE, key, mouse)
         # Render the screen.
         render_all()
 
