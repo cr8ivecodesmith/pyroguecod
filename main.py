@@ -2,6 +2,7 @@
 PyRogueCOD - A python roguelike experiment using libtcod.
 
 """
+import pdb
 import libtcodpy as libtcod
 
 
@@ -92,13 +93,13 @@ def handle_keys():
         return True
 
     # movement
-    if libtcod.console_is_key_pressed(libtcod.KEY_UP):
+    if libtcod.console_is_key_pressed(libtcod.KEY_UP) or key.c == ord('k'):
         player.move(0, -1)
-    elif libtcod.console_is_key_pressed(libtcod.KEY_DOWN):
+    elif libtcod.console_is_key_pressed(libtcod.KEY_DOWN) or key.c == ord('j'):
         player.move(0, 1)
-    elif libtcod.console_is_key_pressed(libtcod.KEY_LEFT):
+    elif libtcod.console_is_key_pressed(libtcod.KEY_LEFT) or key.c == ord('h'):
         player.move(-1, 0)
-    elif libtcod.console_is_key_pressed(libtcod.KEY_RIGHT):
+    elif libtcod.console_is_key_pressed(libtcod.KEY_RIGHT) or key.c == ord('l'):
         player.move(1, 0)
 
 
