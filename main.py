@@ -38,6 +38,7 @@ class Object(object):
 
     Requires the ff. variables to be initialized prior to using this class:
     - con: off-screen console
+    - map: global map coordinates
 
     """
 
