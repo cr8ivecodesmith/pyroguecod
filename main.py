@@ -136,15 +136,22 @@ class Fighter(object):
     """
     owner = None
 
-    def __init__(self, hp, defense, power):
+    def __init__(self, hp, defense, power, death_function=None):
         self.max_hp = hp
         self.hp = hp
         self.defense = defense
         self.power = power
+        self.death_function = death_function
 
     def take_damage(self, damage):
         if damage > 0:
             self.hp -= damage
+
+        # Call the Object's death function if there's one upon death.
+        if self.hp <= 0:
+            function = self.death_function
+            if function:
+                function(self.owner)
 
     def attack(self, target):
         # A simple damage formula.
@@ -157,7 +164,6 @@ class Fighter(object):
         else:
             print('{} attacks {} but it has not effect!'.format(
                   self.owner.name.capitalize(), target.name))
-
 
 
 class BasicMonster(object):
@@ -269,14 +275,16 @@ def place_objects(room):
         if not is_blocked(x, y):
             if libtcod.random_get_int(0, 0, 100) < 80:
                 # 80% chance of an orc.
-                fighter_component = Fighter(hp=10, defense=0, power=3)
+                fighter_component = Fighter(hp=10, defense=0, power=3,
+                                            death_function=monster_death)
                 ai_component = BasicMonster()
                 monster = Object(x, y, 'o', 'orc', libtcod.desaturated_green,
                                  blocks=True, fighter=fighter_component,
                                  ai=ai_component)
             else:
                 # 20% it's a troll!
-                fighter_component = Fighter(hp=16, defense=1, power=4)
+                fighter_component = Fighter(hp=16, defense=1, power=4,
+                                            death_function=monster_death)
                 ai_component = BasicMonster()
                 monster = Object(x, y, 'T', 'troll', libtcod.darker_green,
                                  blocks=True, fighter=fighter_component,
@@ -318,7 +326,7 @@ def player_move_or_attack(dx, dy):
     # Try to find an attackable object there.
     target = None
     for obj in objects:
-        if obj.x == x and obj.y == y:
+        if obj.fighter and obj.x == x and obj.y == y:
             target = obj
             break
 
@@ -328,6 +336,32 @@ def player_move_or_attack(dx, dy):
     else:
         player.move(dx, dy)
         fov_recompute = True
+
+
+def player_death(player):
+    """ Death function for the player.
+
+    """
+    global game_state
+    print('You died!')
+    game_state = 'dead'
+
+    # Transform the player into a bloody corpse!
+    player.char = '%'
+    player.color = libtcod.dark_red
+
+
+def monster_death(monster):
+    """ Death function for the monster.
+
+    """
+    print('{} is dead!'.format(monster.name.capitalize()))
+    monster.char = '%'
+    monster.color = libtcod.dark_red
+    monster.blocks = False
+    monster.fighter = None
+    monster.ai = None
+    monster.name = 'remains of {}'.format(monster.name)
 
 
 def handle_keys():
@@ -544,7 +578,8 @@ if __name__ == '__main__':
     libtcod.sys_set_fps(LIMIT_FPS)
 
     # Create the object representing the player.
-    fighter_component = Fighter(hp=30, defense=2, power=5)
+    fighter_component = Fighter(hp=30, defense=2, power=5,
+                                death_function=player_death)
     player = Object(0, 0, '@', 'player', libtcod.white, blocks=True,
                     fighter=fighter_component)
 
