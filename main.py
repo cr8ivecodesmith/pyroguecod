@@ -3,8 +3,6 @@ import libtcodpy as libtcod
 SCREEN_WIDTH = 80
 SCREEN_HEIGHT = 50
 LIMIT_FPS = 20
-playerx = SCREEN_WIDTH / 2
-playery = SCREEN_HEIGHT / 2
 
 # Set the font
 libtcod.console_set_custom_font('arial10x10.png', libtcod.FONT_TYPE_GREYSCALE |
@@ -49,17 +47,16 @@ class Object(object):
         """
         libtcod.console_set_default_foreground(con, self.color)
         libtcod.console_put_char(con, self.x, self.y, self.char,
-                                 libtcod.BKGN_NONE)
+                                 libtcod.BKGND_NONE)
 
     def clear(self):
         """ Erase the character that represents this object.
 
         """
-        libtcod.console_put_char(con, self.x, self.y, ' ', libtcod.BKGN_NONE)
+        libtcod.console_put_char(con, self.x, self.y, ' ', libtcod.BKGND_NONE)
 
 
-def handle_keys():
-    global playerx, playery
+def handle_keys(player):
 
     # Use this to make movement turn-based
     key = libtcod.console_wait_for_keypress(True)
@@ -76,24 +73,28 @@ def handle_keys():
 
     # movement
     if libtcod.console_is_key_pressed(libtcod.KEY_UP):
-        playery -= 1
+        player.move(0, -1)
     elif libtcod.console_is_key_pressed(libtcod.KEY_DOWN):
-        playery += 1
+        player.move(0, 1)
     elif libtcod.console_is_key_pressed(libtcod.KEY_LEFT):
-        playerx -= 1
+        player.move(-1, 0)
     elif libtcod.console_is_key_pressed(libtcod.KEY_RIGHT):
-        playerx += 1
+        player.move(1, 0)
 
 
 def main():
+    player = Object(SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2, '@', libtcod.white)
+    npc = Object(SCREEN_WIDTH / 2 - 5, SCREEN_HEIGHT / 2, '@', libtcod.yellow)
+    objects = [npc, player]
+
     while not libtcod.console_is_window_closed():
-        global playerx, playery
 
         # Set default off-screen text color to white
         libtcod.console_set_default_foreground(con, libtcod.white)
 
-        # Place the main player on the off-screen
-        libtcod.console_put_char(con, playerx, playery, '@', libtcod.BKGND_NONE)
+        # Place the game objects on the off-screen
+        for obj in objects:
+            obj.draw()
 
         # Blit the contents of the off-screen to the main screen
         libtcod.console_blit(con, 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, 0, 0, 0)
@@ -101,11 +102,12 @@ def main():
         # Update the changes to the screen. Always keep this at the bottom.
         libtcod.console_flush()
 
-        # Clear the trailing character on the off-screen
-        libtcod.console_put_char(con, playerx, playery, ' ', libtcod.BKGND_NONE)
+        # Clear characters on the off-screen
+        for obj in objects:
+            obj.clear()
 
         # handle keys and exit the game if needed
-        exit = handle_keys()
+        exit = handle_keys(player)
         if exit:
             break
 
