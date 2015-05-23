@@ -51,11 +51,6 @@ class Object(object):
     Represents the player, monster, an item, the stairs, wall, etc. Its always
     represented by a character on the screen.
 
-    Requires the ff. variables to be initialized prior to using this class:
-    - con: off-screen console
-    - map: global map coordinates
-    - fov_map: FOV mapping.
-
     """
     def __init__(self, x, y, char, name, color, blocks=False, fighter=None,
                  ai=None):
@@ -118,6 +113,15 @@ class Object(object):
             at its position only when its within the FOV.
 
         """
+        global con
+        global map
+        global fov_recompute
+        global fov_map
+        global game_state
+        global player_action
+        global objects
+        global player
+
         if libtcod.map_is_in_fov(fov_map, self.x, self.y):
             libtcod.console_set_default_foreground(con, self.color)
             libtcod.console_put_char(con, self.x, self.y, self.char,
@@ -127,6 +131,15 @@ class Object(object):
         """ Erase the character that represents this object.
 
         """
+        global con
+        global map
+        global fov_recompute
+        global fov_map
+        global game_state
+        global player_action
+        global objects
+        global player
+
         libtcod.console_put_char(con, self.x, self.y, ' ', libtcod.BKGND_NONE)
 
 
@@ -169,15 +182,13 @@ class Fighter(object):
 class BasicMonster(object):
     """ AI Object component for basic monsters
 
-    Requires the ff. variables to be initialized prior to calling this
-    function:
-    - fov_map: FOV mapping.
-    - player: Object instance for the main character.
-
     """
     owner = None
 
     def take_turn(self):
+        global fov_map
+        global player
+
         monster = self.owner
         if libtcod.map_is_in_fov(fov_map, monster.x, monster.y):
             # move towards the player
@@ -216,12 +227,9 @@ class Rect(object):
 def create_room(room):
     """ Go through the tiles in the rectangle and make them passable.
 
-    Requires the ff. variables to be initialized prior to calling this
-    function:
-    - map: global map coordinates
-
     """
     global map
+
     for x in range(room.x1 + 1, room.x2):
         for y in range(room.y1 + 1, room.y2):
             map[x][y].blocked = False
@@ -257,11 +265,9 @@ def create_v_tunnel(y1, y2, x):
 def place_objects(room):
     """ Place objects in a room.
 
-    Requires the ff. variables to be initialized prior to calling this
-    function:
-    - objects: List of game objects.
-
     """
+    global objects
+
     num_monsters = libtcod.random_get_int(0, 0, MAX_ROOM_MONSTERS)
 
     for i in range(num_monsters):
@@ -297,6 +303,8 @@ def is_blocked(x, y):
     """ Check whether a location on the map has a tile or a blocking object.
 
     """
+    global map
+
     if map[x][y].blocked:
         return True
 
@@ -310,14 +318,10 @@ def is_blocked(x, y):
 def player_move_or_attack(dx, dy):
     """ Handle player action to either move or attack
 
-    Requires the ff. variables to be initialized prior to calling this
-    function:
-    - player: Object instance for the main character.
-    - fov_recompute: global flag to check if FOV needs to recomputed.
-    - objects: List of game objects.
-
     """
     global fov_recompute
+    global objects
+    global player
 
     # The coordinates where the player is moving/attacking.
     x = player.x + dx
@@ -367,15 +371,7 @@ def monster_death(monster):
 def handle_keys():
     """ Handle key input from the user.
 
-    Requires the ff. variables to be initialized prior to calling this
-    function:
-    - player: Object instance for the main character.
-    - fov_recompute: global flag to check if FOV needs to recomputed.
-    - game_state: global game status to determine whether player action should
-      be allowed.
-
     """
-    global fov_recompute
     global game_state
 
     # Use this to make movement turn-based
@@ -411,20 +407,14 @@ def handle_keys():
 def make_map():
     """ Generates the map coordinates
 
-    Creates the global var `map`.
-
     Room generation logic:
     Pick a random location for the first room and carve it. Then pick another
     location for the second; if it doesn't overlap with the first. Connect the
     two with a tunnel. Repeat.
 
-    Requires the ff. variables to be initialized prior to calling this
-    function:
-    - player: Object instance for the main character.
-    - objects: List of game objects.
-
     """
     global map
+    global player
 
     # Fill map with unblocked tiles
     # Access the map: map[x][y]
@@ -488,16 +478,13 @@ def make_map():
 def render_all():
     """ Draw the game objects and the map.
 
-    Requires the ff. variables to be initialized prior to calling this
-    function:
-    - objects: game objects list
-    - map: global map coordinates
-    - con: off-screen console
-    - fov_recompute: global flag to check if FOV needs to recomputed.
-    - fov_map: FOV mapping.
-
     """
+    global con
+    global map
     global fov_recompute
+    global fov_map
+    global objects
+    global player
 
     # Recompute the FOV and reset the flag when the player moves.
     if fov_recompute:
@@ -534,9 +521,11 @@ def render_all():
                                                         libtcod.BKGND_SET)
                 map[x][y].explored = True
 
-    # Place the game objects on the off-screen
+    # Place the game objects on the off-screen and draw the player last.
     for obj in objects:
-        obj.draw()
+        if obj != player:
+            obj.draw()
+    player.draw()
 
     # Blit the contents of the off-screen to the main screen
     libtcod.console_blit(con, 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, 0, 0, 0)
@@ -552,10 +541,14 @@ if __name__ == '__main__':
     """ Initialization of required variables and game loop.
 
     """
+    global con
     global map
     global fov_recompute
+    global fov_map
     global game_state
     global player_action
+    global objects
+    global player
 
     map = None
     fov_recompute = True
@@ -584,13 +577,10 @@ if __name__ == '__main__':
                     fighter=fighter_component)
 
     # Init list of game objects.
-    objects = []
+    objects = [player]
 
     # Generate map coordinates.
     make_map()
-
-    # We make sure that the player is the last item in the object list.
-    objects.append(player)
 
     # Initalize the FOV map.
     fov_map = libtcod.map_new(MAP_WIDTH, MAP_HEIGHT)
