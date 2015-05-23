@@ -4,6 +4,8 @@ PyRogueCOD - A python roguelike experiment using libtcod.
 """
 from __future__ import print_function
 
+import math
+
 import libtcodpy as libtcod
 
 
@@ -64,7 +66,7 @@ class Object(object):
         self.char = char
         self.color = color
 
-        self.fighter = figher
+        self.fighter = fighter
         if self.fighter:
             # Let the fighter component know its owner.
             self.fighter.owner = self
@@ -81,6 +83,35 @@ class Object(object):
         if not is_blocked(self.x + dx, self.y + dy):
             self.x += dx
             self.y += dy
+
+    def move_towards(self, target_x, target_y):
+        """ Basic path-finding functionality.
+
+        Get a vector from the object to the target, then normalize so it has
+        the same direction but has a length of exactly 1 tile. Then we round it
+        so the resulting vector is an integer and not a fraction (dx and dy can
+        only take values that is -1, 1, or 0). Finally, the object moves by
+        this amount.
+
+        """
+        # vector and distance from this object to its target
+        dx = target_x - self.x
+        dy = target_y - self.y
+        distance = math.sqrt(dx**2 + dy**2)
+
+        # normalize it to lenght 1 (preserving direction), then round it and
+        # convert to int so the movement is restricted to the map grid.
+        dx = int(round(dx / distance))
+        dy = int(round(dy / distance))
+        self.move(dx, dy)
+
+    def distance_to(self, other):
+        """ Return the distance to another object.
+
+        """
+        dx = other.x - self.x
+        dy = other.y - self.y
+        return math.sqrt(dx**2 + dy**2)
 
     def draw(self):
         """ Set the color then draw the character that represents this object
@@ -115,11 +146,23 @@ class Fighter(object):
 class BasicMonster(object):
     """ AI Object component for basic monsters
 
+    Requires the ff. variables to be initialized prior to calling this
+    function:
+    - fov_map: FOV mapping.
+    - player: Object instance for the main character.
+
     """
     owner = None
 
     def take_turn(self):
-        print('The {} growls!'.format(self.owner.name))
+        monster = self.owner
+        if libtcod.map_is_in_fov(fov_map, monster.x, monster.y):
+            # move towards the player
+            if monster.distance_to(player) >= 2:
+                monster.move_towards(player.x, player.y)
+            elif player.fighter.hp > 0:
+                print('The attack of the {} bounces off your not-so-shiny '
+                      'armor!'.format(monster.name))
 
 
 class Rect(object):
@@ -520,5 +563,5 @@ if __name__ == '__main__':
         # Let monsters take their turn
         if game_state == 'playing' and player_action != 'didnt-take-turn':
             for obj in objects:
-                if obj != player:
-                    print('The {} growls!'.format(obj.name))
+                if obj.ai:
+                    obj.ai.take_turn()
