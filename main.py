@@ -72,6 +72,31 @@ class Object(object):
         libtcod.console_put_char(con, self.x, self.y, ' ', libtcod.BKGND_NONE)
 
 
+class Rect(object):
+    """ A rectangle on the map used to characterize a room.
+
+    """
+    def __init__(self, x, y, w, h):
+        self.x1 = x
+        self.y1 = y
+        self.x2 = x + w
+        self.y2 = y + h
+
+
+def create_room(room):
+    """ Go through the tiles in the rectangle and make them passable.
+
+    Requires the ff. variables to be initialized prior to calling this function:
+    - map: global map coordinates
+
+    """
+    global map
+    for x in range(room.x1 + 1, room.x2):
+        for y in range(room.y1 + 1, room.y2):
+            map[x][y].blocked = False
+            map[x][y].block_sight = False
+
+
 def handle_keys():
     """ Handle key input from the user.
 
@@ -114,14 +139,15 @@ def make_map():
 
     # Fill map with unblocked tiles
     # Access the map: map[x][y]
-    map = [[Tile(False) for y in range(MAP_HEIGHT)]
+    map = [[Tile(True) for y in range(MAP_HEIGHT)]
            for x in range(MAP_WIDTH)]
 
-    # Add some "pillars" on the map.
-    map[30][22].blocked = True
-    map[30][22].block_sight = True
-    map[50][22].blocked = True
-    map[50][22].block_sight = True
+    # Create 2 rooms
+    room1 = Rect(20, 15, 10, 15)
+    room2 = Rect(50, 15, 10, 15)
+    create_room(room1)
+    create_room(room2)
+
 
 
 def render_all():
@@ -187,6 +213,10 @@ if __name__ == '__main__':
 
     # Generate map coordinates.
     make_map()
+
+    # Let's place the player and npc in the center of the rooms.
+    player.x, player.y = (25, 23)
+    npc.x, npc.y = (55, 23)
 
 
     while not libtcod.console_is_window_closed():
