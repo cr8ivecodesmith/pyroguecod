@@ -2,6 +2,8 @@
 PyRogueCOD - A python roguelike experiment using libtcod.
 
 """
+from __future__ import print_function
+
 import libtcodpy as libtcod
 
 
@@ -198,6 +200,38 @@ def is_blocked(x, y):
     return False
 
 
+def player_move_or_attack(dx, dy):
+    """ Handle player action to either move or attack
+
+    Requires the ff. variables to be initialized prior to calling this
+    function:
+    - player: Object instance for the main character.
+    - fov_recompute: global flag to check if FOV needs to recomputed.
+    - objects: List of game objects.
+
+    """
+    global fov_recompute
+
+    # The coordinates where the player is moving/attacking.
+    x = player.x + dx
+    y = player.y + dy
+
+    # Try to find an attackable object there.
+    target = None
+    for obj in objects:
+        if obj.x == x and obj.y == y:
+            target = obj
+            break
+
+    # Attack if a target was found, move otherwise.
+    if target:
+        print('The {} laughs at your sorry excuse for an attack!'.format(
+              target.name))
+    else:
+        player.move(dx, dy)
+        fov_recompute = True
+
+
 def handle_keys():
     """ Handle key input from the user.
 
@@ -228,20 +262,16 @@ def handle_keys():
     # movement
     if game_state == 'playing':
         if libtcod.console_is_key_pressed(libtcod.KEY_UP) or key.c == ord('k'):
-            player.move(0, -1)
-            fov_recompute = True
+            player_move_or_attack(0, -1)
         elif (libtcod.console_is_key_pressed(libtcod.KEY_DOWN) or
               key.c == ord('j')):
-            player.move(0, 1)
-            fov_recompute = True
+            player_move_or_attack(0, 1)
         elif (libtcod.console_is_key_pressed(libtcod.KEY_LEFT) or
               key.c == ord('h')):
-            player.move(-1, 0)
-            fov_recompute = True
+            player_move_or_attack(-1, 0)
         elif (libtcod.console_is_key_pressed(libtcod.KEY_RIGHT) or
               key.c == ord('l')):
-            player.move(1, 0)
-            fov_recompute = True
+            player_move_or_attack(1, 0)
         else:
             return 'didnt-take-turn'
 
@@ -430,7 +460,6 @@ if __name__ == '__main__':
                                        not map[x][y].blocked)
 
     while not libtcod.console_is_window_closed():
-
         # Render the screen.
         render_all()
 
@@ -442,5 +471,12 @@ if __name__ == '__main__':
 
         # handle keys and exit the game if needed
         player_action = handle_keys()
+
         if player_action == 'exit':
             break
+
+        # Let monsters take their turn
+        if game_state == 'playing' and player_action != 'didnt-take-turn':
+            for obj in objects:
+                if obj != player:
+                    print('The {} growls!'.format(obj.name))
