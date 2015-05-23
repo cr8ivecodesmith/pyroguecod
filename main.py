@@ -51,8 +51,9 @@ class Object(object):
         """ Move by the given amount.
 
         """
-        self.x += dx
-        self.y += dy
+        if not map[self.x + dx][self.y + dy].blocked:
+            self.x += dx
+            self.y += dy
 
     def draw(self):
         """ Set the color then draw the character that represents this object
