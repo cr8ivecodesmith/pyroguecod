@@ -38,6 +38,7 @@ MSG_WIDTH = SCREEN_WIDTH - BAR_WIDTH - 2
 MSG_HEIGHT = PANEL_HEIGHT - 1
 
 INVENTORY_WIDTH = 50
+HEAL_AMOUNT = 4
 
 color_dark_wall = libtcod.Color(0, 0, 100)
 color_light_wall = libtcod.Color(130, 110, 50)
@@ -191,6 +192,12 @@ class Fighter(object):
                   self.owner.name.capitalize(), target.name)
             message(msg)
 
+    def heal(self, amount):
+        if self.hp > self.max_hp:
+            self.hp = self.max_hp
+        else:
+            self.hp += amount
+
 
 class BasicMonster(object):
     """ AI Object component for basic monsters
@@ -219,6 +226,9 @@ class Item(object):
     """
     owner = None
 
+    def __init__(self, use_function=None):
+        self.use_function = use_function
+
     def pick_up(self):
         global inventory
         global objects
@@ -231,6 +241,16 @@ class Item(object):
             objects.remove(self.owner)
             message('You picked up the {}!'.format(self.owner.name),
                     libtcod.green)
+
+    def use(self):
+        global inventory
+
+        if not self.use_function:
+            message('The {} cannot be used.'.format(self.owner.name))
+        else:
+            if self.use_function() != 'cancelled':
+                # destroy after use unless it was cancelled.
+                inventory.remove(self.owner)
 
 
 class Rect(object):
@@ -343,7 +363,7 @@ def place_objects(room):
 
         if not is_blocked(x, y):
             # create a healing potion
-            item_component = Item()
+            item_component = Item(use_function=cast_heal)
             item = Object(x, y, '!', 'healing potion', libtcod.violet,
                           item=item_component)
             objects.append(item)
@@ -391,6 +411,19 @@ def player_move_or_attack(dx, dy):
     else:
         player.move(dx, dy)
         fov_recompute = True
+
+
+def cast_heal():
+    """ Heal the player
+
+    """
+    global player
+
+    if player.fighter.hp == player.fighter.max_hp:
+        message('You are already at full health.', libtcod.red)
+        return 'cancelled'
+    message('Your wounds start to feel better!', libtcod.light_violet)
+    player.fighter.heal(HEAL_AMOUNT)
 
 
 def player_death(player):
@@ -464,7 +497,14 @@ def menu(header, options, width):
 
     # Present the mains screen to the player and wait for a key-press
     libtcod.console_flush()
+
+    # Watch out for key presses and return the options index.
     key = libtcod.console_wait_for_keypress(True)
+    index = key.c - ord('a')
+    if index >= 0 and index < len(options):
+        return index
+
+    return None
 
 
 def inventory_menu(header):
@@ -480,6 +520,7 @@ def inventory_menu(header):
         options = [item.name for item in inventory]
 
     index = menu(header, options, INVENTORY_WIDTH)
+    return None if index is None or not len(inventory) else inventory[index].item
 
 
 def handle_keys():
@@ -520,8 +561,10 @@ def handle_keys():
                         break
             if key_char == 'i':
                 # show the inventory
-                inventory_menu('Press the key next to an item to use it, or '
-                               'any key to cancel.')
+                chosen_item = inventory_menu('Press the key next to an item to'
+                                             'use it, or any key to cancel.\n')
+                if chosen_item:
+                    chosen_item.use()
 
             return 'didnt-take-turn'
 
