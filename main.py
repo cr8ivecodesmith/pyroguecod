@@ -2,7 +2,6 @@
 PyRogueCOD - A python roguelike experiment using libtcod.
 
 """
-import pdb
 import libtcodpy as libtcod
 
 
@@ -161,7 +160,7 @@ if __name__ == '__main__':
     """
 
     # Set the font.
-    libtcod.console_set_custom_font('arial10x10.png',
+    libtcod.console_set_custom_font('terminal10x10.png',
                                     libtcod.FONT_TYPE_GREYSCALE |
                                     libtcod.FONT_LAYOUT_TCOD)
 
