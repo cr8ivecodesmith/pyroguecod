@@ -105,7 +105,8 @@ class Rect(object):
 def create_room(room):
     """ Go through the tiles in the rectangle and make them passable.
 
-    Requires the ff. variables to be initialized prior to calling this function:
+    Requires the ff. variables to be initialized prior to calling this
+    function:
     - map: global map coordinates
 
     """
@@ -145,7 +146,8 @@ def create_v_tunnel(y1, y2, x):
 def handle_keys():
     """ Handle key input from the user.
 
-    Requires the ff. variables to be initialized prior to calling this function:
+    Requires the ff. variables to be initialized prior to calling this
+    function:
     - player: Object instance for the main character.
 
     """
@@ -166,11 +168,14 @@ def handle_keys():
     # movement
     if libtcod.console_is_key_pressed(libtcod.KEY_UP) or key.c == ord('k'):
         player.move(0, -1)
-    elif libtcod.console_is_key_pressed(libtcod.KEY_DOWN) or key.c == ord('j'):
+    elif (libtcod.console_is_key_pressed(libtcod.KEY_DOWN) or
+          key.c == ord('j')):
         player.move(0, 1)
-    elif libtcod.console_is_key_pressed(libtcod.KEY_LEFT) or key.c == ord('h'):
+    elif (libtcod.console_is_key_pressed(libtcod.KEY_LEFT) or
+          key.c == ord('h')):
         player.move(-1, 0)
-    elif libtcod.console_is_key_pressed(libtcod.KEY_RIGHT) or key.c == ord('l'):
+    elif (libtcod.console_is_key_pressed(libtcod.KEY_RIGHT) or
+          key.c == ord('l')):
         player.move(1, 0)
 
 
@@ -184,9 +189,11 @@ def make_map():
     location for the second; if it doesn't overlap with the first. Connect the
     two with a tunnel. Repeat.
 
-    Requires the ff. variables to be initialized prior to calling this function:
+    Requires the ff. variables to be initialized prior to calling this
+    function:
     - player: Object instance for the main character.
     - npc: Object instance for the npc character.
+    - objects: List of game objects.
 
     """
     global map
@@ -204,8 +211,8 @@ def make_map():
         h = libtcod.random_get_int(0, ROOM_MIN_SIZE, ROOM_MAX_SIZE)
 
         # Random pos without going out of map boundaries
-        x = libtcod.random_get_int(0,0, MAP_WIDTH - w - 1)
-        y = libtcod.random_get_int(0,0, MAP_HEIGHT - h - 1)
+        x = libtcod.random_get_int(0, 0, MAP_WIDTH - w - 1)
+        y = libtcod.random_get_int(0, 0, MAP_HEIGHT - h - 1)
 
         new_room = Rect(x, y, w, h)
 
@@ -220,6 +227,11 @@ def make_map():
             # "paint" it to the map.
             create_room(new_room)
             new_x, new_y = new_room.center()
+
+            # Add a label from 'A' to 'Z' in each room. This helps us visualize
+            # the order in which they were generated.
+            room_no = Object(new_x, new_y, chr(65+num_rooms), libtcod.white)
+            objects.insert(0, room_no)
 
             if num_rooms == 0:
                 # If this is the first room, put the player in it.
@@ -252,7 +264,8 @@ def make_map():
 def render_all():
     """ Draw the game objects and the map.
 
-    Requires the ff. variables to be initialized prior to calling this function:
+    Requires the ff. variables to be initialized prior to calling this
+    function:
     - objects: game objects list
     - map: global map coordinates
     - con: off-screen console
