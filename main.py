@@ -142,6 +142,23 @@ class Fighter(object):
         self.defense = defense
         self.power = power
 
+    def take_damage(self, damage):
+        if damage > 0:
+            self.hp -= damage
+
+    def attack(self, target):
+        # A simple damage formula.
+        damage = self.power - target.fighter.defense
+
+        if damage:
+            print('{} attacks {} for {} hit points.'.format(
+                  self.owner.name.capitalize(), target.name, damage))
+            target.fighter.take_damage(damage)
+        else:
+            print('{} attacks {} but it has not effect!'.format(
+                  self.owner.name.capitalize(), target.name))
+
+
 
 class BasicMonster(object):
     """ AI Object component for basic monsters
@@ -161,8 +178,7 @@ class BasicMonster(object):
             if monster.distance_to(player) >= 2:
                 monster.move_towards(player.x, player.y)
             elif player.fighter.hp > 0:
-                print('The attack of the {} bounces off your not-so-shiny '
-                      'armor!'.format(monster.name))
+                monster.fighter.attack(player)
 
 
 class Rect(object):
@@ -308,8 +324,7 @@ def player_move_or_attack(dx, dy):
 
     # Attack if a target was found, move otherwise.
     if target:
-        print('The {} laughs at your sorry excuse for an attack!'.format(
-              target.name))
+        player.fighter.attack(target)
     else:
         player.move(dx, dy)
         fov_recompute = True
