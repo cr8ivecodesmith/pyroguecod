@@ -1,8 +1,11 @@
 import libtcodpy as libtcod
 
+
 SCREEN_WIDTH = 80
 SCREEN_HEIGHT = 50
 LIMIT_FPS = 20
+MAP_WIDTH = 80
+MAP_HEIGHT = 45
 
 # Set the font
 libtcod.console_set_custom_font('arial10x10.png', libtcod.FONT_TYPE_GREYSCALE |
@@ -17,6 +20,21 @@ con = libtcod.console_new(SCREEN_WIDTH, SCREEN_HEIGHT)
 
 # Set FPS. This does not have an effect for turn-based games
 libtcod.sys_set_fps(LIMIT_FPS)
+
+# Set the tile colors
+color_dark_wall = libtcod.Color(0, 0, 100)
+color_dark_ground = libtcod.Color(50, 50, 150)
+
+
+class Tile(object):
+    """ A tile on the map and its properties
+
+    """
+    def __init__(self, blocked, block_sight=None):
+        self.blocked = blocked
+
+        # By default, if a tile is blocked, it also blocks sight.
+        self.block_sight = blocked if block_sight is None else block_sight
 
 
 class Object(object):
@@ -80,6 +98,21 @@ def handle_keys(player):
         player.move(-1, 0)
     elif libtcod.console_is_key_pressed(libtcod.KEY_RIGHT):
         player.move(1, 0)
+
+
+def make_map():
+    global map
+
+    # Fill map with unblocked tiles
+    # Access the map: map[x][y]
+    map = [[Tile(False) for y in range(MAP_HEIGHT)]
+           for x in range(MAP_WIDTH)]
+
+    # Add some "pillars" on the map.
+    map[30][22].blocked = True
+    map[30][22].block_sight = True
+    map[50][22].blocked = True
+    map[50][22].block_sight = True
 
 
 def main():
