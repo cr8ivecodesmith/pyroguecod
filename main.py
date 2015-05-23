@@ -5,6 +5,7 @@ PyRogueCOD - A python roguelike experiment using libtcod.
 from __future__ import print_function
 
 import math
+import textwrap
 
 import libtcodpy as libtcod
 
@@ -30,6 +31,10 @@ TORCH_RADIUS = 3
 BAR_WIDTH = 20
 PANEL_HEIGHT = 7
 PANEL_Y = SCREEN_HEIGHT - PANEL_HEIGHT
+
+MSG_X = BAR_WIDTH + 2
+MSG_WIDTH = SCREEN_WIDTH - BAR_WIDTH - 2
+MSG_HEIGHT = PANEL_HEIGHT - 1
 
 color_dark_wall = libtcod.Color(0, 0, 100)
 color_light_wall = libtcod.Color(130, 110, 50)
@@ -170,12 +175,14 @@ class Fighter(object):
         damage = self.power - target.fighter.defense
 
         if damage:
-            print('{} attacks {} for {} hit points.'.format(
-                  self.owner.name.capitalize(), target.name, damage))
+            msg = '{} attacks {} for {} hit points.'.format(
+                  self.owner.name.capitalize(), target.name, damage)
+            message(msg)
             target.fighter.take_damage(damage)
         else:
-            print('{} attacks {} but it has not effect!'.format(
-                  self.owner.name.capitalize(), target.name))
+            msg = '{} attacks {} but it has not effect!'.format(
+                  self.owner.name.capitalize(), target.name)
+            message(msg)
 
 
 class BasicMonster(object):
@@ -346,7 +353,7 @@ def player_death(player):
 
     """
     global game_state
-    print('You died!')
+    message('You died!', libtcod.red)
     game_state = 'dead'
 
     # Transform the player into a bloody corpse!
@@ -358,7 +365,7 @@ def monster_death(monster):
     """ Death function for the monster.
 
     """
-    print('{} is dead!'.format(monster.name.capitalize()))
+    message('{} is dead!'.format(monster.name.capitalize()), libtcod.orange)
     monster.char = '%'
     monster.color = libtcod.dark_red
     monster.blocks = False
@@ -475,6 +482,20 @@ def make_map():
             num_rooms += 1
 
 
+def message(new_msg, color=libtcod.white):
+    global game_msgs
+
+    new_msg_lines = textwrap.wrap(new_msg, MSG_WIDTH)
+
+    for line in new_msg_lines:
+        # if buffer is full, remove the first line and make room for new msgs.
+        if len(game_msgs) == MSG_HEIGHT:
+            game_msgs.pop(0)
+
+        # add the new line as a tuple with text and color
+        game_msgs.append((line, color))
+
+
 def render_all():
     """ Draw the game objects and the map.
 
@@ -535,6 +556,14 @@ def render_all():
     libtcod.console_set_default_background(panel, libtcod.black)
     libtcod.console_clear(panel)
 
+    # Print the game messages one line at a time.
+    y = 1
+    for (line, color) in game_msgs:
+        libtcod.console_set_default_foreground(panel, color)
+        libtcod.console_print_ex(panel, MSG_X, y, libtcod.BKGND_NONE,
+                                 libtcod.LEFT, line)
+        y += 1
+
     # Show the player's stats
     render_bar(1, 1, BAR_WIDTH, 'HP', player.fighter.hp, player.fighter.max_hp,
                libtcod.light_red, libtcod.darker_red)
@@ -586,11 +615,13 @@ if __name__ == '__main__':
     global objects
     global player
     global panel
+    global game_msgs
 
     map = None
     fov_recompute = True
     game_state = 'playing'
     player_action = None
+    game_msgs = []
 
     # Set the font.
     libtcod.console_set_custom_font('terminal10x10.png',
@@ -629,6 +660,10 @@ if __name__ == '__main__':
 
     # Init the status bar console panel.
     panel = libtcod.console_new(SCREEN_WIDTH, PANEL_HEIGHT)
+
+    # Set the welcome message.
+    message('Welcome stranger! Prepare to perish in the tombs of the Ancient '
+            'Kings.', libtcod.red)
 
     while not libtcod.console_is_window_closed():
         # Render the screen.
