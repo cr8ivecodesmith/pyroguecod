@@ -210,12 +210,18 @@ def place_objects(room):
         if not is_blocked(x, y):
             if libtcod.random_get_int(0, 0, 100) < 80:
                 # 80% chance of an orc.
+                fighter_component = Fighter(hp=10, defense=0, power=3)
+                ai_component = BasicMonster()
                 monster = Object(x, y, 'o', 'orc', libtcod.desaturated_green,
-                                 blocks=True)
+                                 blocks=True, fighter=fighter_component,
+                                 ai=ai_component)
             else:
                 # 20% it's a troll!
+                fighter_component = Fighter(hp=16, defense=1, power=4)
+                ai_component = BasicMonster()
                 monster = Object(x, y, 'T', 'troll', libtcod.darker_green,
-                                 blocks=True)
+                                 blocks=True, fighter=fighter_component,
+                                 ai=ai_component)
 
             objects.append(monster)
 
@@ -474,7 +480,9 @@ if __name__ == '__main__':
     libtcod.sys_set_fps(LIMIT_FPS)
 
     # Create the object representing the player.
-    player = Object(0, 0, '@', 'player', libtcod.white, blocks=True)
+    fighter_component = Fighter(hp=30, defense=2, power=5)
+    player = Object(0, 0, '@', 'player', libtcod.white, blocks=True,
+                    fighter=fighter_component)
 
     # Init list of game objects.
     objects = []
