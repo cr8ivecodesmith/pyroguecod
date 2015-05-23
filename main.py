@@ -6,7 +6,6 @@ import libtcodpy as libtcod
 
 
 # Global constants
-
 SCREEN_WIDTH = 80
 SCREEN_HEIGHT = 50
 
@@ -18,6 +17,7 @@ MAP_HEIGHT = 45
 ROOM_MAX_SIZE = 10
 ROOM_MIN_SIZE = 6
 MAX_ROOMS = 30
+MAX_ROOM_MONSTERS = 3
 
 FOV_ALGO = 0  # Default FOV algorithm
 FOV_LIGHT_WALLS = True
@@ -52,9 +52,7 @@ class Object(object):
     - map: global map coordinates
     - fov_map: FOV mapping.
 
-
     """
-
     def __init__(self, x, y, char, color):
         self.x = x
         self.y = y
@@ -153,6 +151,35 @@ def create_v_tunnel(y1, y2, x):
         map[x][y].block_sight = False
 
 
+def place_objects(room):
+    """ Place objects in a room.
+
+    Requires the ff. variables to be initialized prior to calling this
+    function:
+    - objects: List of game objects.
+
+    """
+    num_monsters = libtcod.random_get_int(0, 0, MAX_ROOM_MONSTERS)
+
+    for i in range(num_monsters):
+        # NOTE: We can play around this some more to place different kinds of
+        # monsters or groups of monsters. We'll settle with this for now.
+
+        # Choose a random a place for this monster in the room.
+        # TODO: Change this so that the monster doesn't get placed in a wall.
+        x = libtcod.random_get_int(0, room.x1, room.x2)
+        y = libtcod.random_get_int(0, room.y1, room.y2)
+
+        if libtcod.random_get_int(0, 0, 100) < 80:  # 80% chance it's an orc.
+            # 80% chance of an orc.
+            monster = Object(x, y, 'o', libtcod.desaturated_green)
+        else:
+            # 20% it's a troll!
+            monster = Object(x, y, 'T', libtcod.darker_green)
+
+        objects.append(monster)
+
+
 def handle_keys():
     """ Handle key input from the user.
 
@@ -242,6 +269,10 @@ def make_map():
         if not failed:
             # "paint" it to the map.
             create_room(new_room)
+
+            # put objects in it such as monsters.
+            place_objects(new_room)
+
             new_x, new_y = new_room.center()
 
             # Add a label from 'A' to 'Z' in each room. This helps us visualize
@@ -296,7 +327,6 @@ def render_all():
         fov_recompute = False
         libtcod.map_compute_fov(fov_map, player.x, player.y, TORCH_RADIUS,
                                 FOV_LIGHT_WALLS, FOV_ALGO)
-
 
     # Go through all the tiles and set their color
     for y in range(MAP_HEIGHT):
@@ -364,10 +394,15 @@ if __name__ == '__main__':
     npc = Object(SCREEN_WIDTH / 2 - 5, SCREEN_HEIGHT / 2, '@', libtcod.yellow)
 
     # Init list of game objects.
-    objects = [npc, player]
+    objects = []
 
     # Generate map coordinates.
     make_map()
+
+    # We make sure that the npc and player are the last items in the object
+    # list.
+    objects.append(npc)
+    objects.append(player)
 
     # Initalize the FOV map.
     fov_map = libtcod.map_new(MAP_WIDTH, MAP_HEIGHT)
