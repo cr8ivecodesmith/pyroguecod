@@ -23,6 +23,7 @@ ROOM_MAX_SIZE = 10
 ROOM_MIN_SIZE = 6
 MAX_ROOMS = 30
 MAX_ROOM_MONSTERS = 3
+MAX_ROOM_ITEMS = 2
 
 FOV_ALGO = 4  # Default FOV algorithm
 FOV_LIGHT_WALLS = True
@@ -275,14 +276,16 @@ def place_objects(room):
     global objects
 
     num_monsters = libtcod.random_get_int(0, 0, MAX_ROOM_MONSTERS)
+    num_items = libtcod.random_get_int(0, 0, MAX_ROOM_ITEMS)
 
+    # Place the monsters.
     for i in range(num_monsters):
         # NOTE: We can play around this some more to place different kinds of
         # monsters or groups of monsters. We'll settle with this for now.
 
         # Choose a random a place for this monster in the room.
-        x = libtcod.random_get_int(0, room.x1, room.x2)
-        y = libtcod.random_get_int(0, room.y1, room.y2)
+        x = libtcod.random_get_int(0, room.x1 + 1, room.x2 - 1)
+        y = libtcod.random_get_int(0, room.y1 + 1, room.y2 - 1)
 
         if not is_blocked(x, y):
             if libtcod.random_get_int(0, 0, 100) < 80:
@@ -303,6 +306,18 @@ def place_objects(room):
                                  ai=ai_component)
 
             objects.append(monster)
+
+    # Place the items
+    for i in range(num_items):
+        # Choose a random a place for this item in the room.
+        x = libtcod.random_get_int(0, room.x1 + 1, room.x2 - 1)
+        y = libtcod.random_get_int(0, room.y1 + 1, room.y2 - 1)
+
+        if not is_blocked(x, y):
+            # create a healing potion
+            item = Object(x, y, '!', 'healing potion', libtcod.violet)
+            objects.append(item)
+            item.send_to_back()
 
 
 def is_blocked(x, y):
