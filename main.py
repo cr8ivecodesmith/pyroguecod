@@ -108,19 +108,21 @@ class Object(object):
         dy = other.y - self.y
         return math.sqrt(dx**2 + dy**2)
 
+    def send_to_back(self):
+        """ Have this object drawn first.
+
+        """
+        global objects
+        objects.remove(self)
+        objects.insert(0, self)
+
     def draw(self):
         """ Set the color then draw the character that represents this object
             at its position only when its within the FOV.
 
         """
         global con
-        global map
-        global fov_recompute
         global fov_map
-        global game_state
-        global player_action
-        global objects
-        global player
 
         if libtcod.map_is_in_fov(fov_map, self.x, self.y):
             libtcod.console_set_default_foreground(con, self.color)
@@ -132,13 +134,6 @@ class Object(object):
 
         """
         global con
-        global map
-        global fov_recompute
-        global fov_map
-        global game_state
-        global player_action
-        global objects
-        global player
 
         libtcod.console_put_char(con, self.x, self.y, ' ', libtcod.BKGND_NONE)
 
@@ -366,6 +361,7 @@ def monster_death(monster):
     monster.fighter = None
     monster.ai = None
     monster.name = 'remains of {}'.format(monster.name)
+    monster.send_to_back()
 
 
 def handle_keys():
