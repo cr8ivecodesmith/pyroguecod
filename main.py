@@ -34,6 +34,7 @@ class Tile(object):
 
     """
     def __init__(self, blocked, block_sight=None):
+        self.explored = False
         self.blocked = blocked
 
         # By default, if a tile is blocked, it also blocks sight.
@@ -304,16 +305,17 @@ def render_all():
             wall = map[x][y].block_sight
 
             # Use the global dark or light colors depending on the visibility
-            # of the tile.
+            # of the tile. We also hide it until the player has explored it.
             if not visible:
-                if wall:
-                    libtcod.console_set_char_background(con, x, y,
-                                                        color_dark_wall,
-                                                        libtcod.BKGND_SET)
-                else:
-                    libtcod.console_set_char_background(con, x, y,
-                                                        color_dark_ground,
-                                                        libtcod.BKGND_SET)
+                if map[x][y].explored:
+                    if wall:
+                        libtcod.console_set_char_background(con, x, y,
+                                                            color_dark_wall,
+                                                            libtcod.BKGND_SET)
+                    else:
+                        libtcod.console_set_char_background(con, x, y,
+                                                            color_dark_ground,
+                                                            libtcod.BKGND_SET)
             else:
                 if wall:
                     libtcod.console_set_char_background(con, x, y,
@@ -323,6 +325,7 @@ def render_all():
                     libtcod.console_set_char_background(con, x, y,
                                                         color_light_ground,
                                                         libtcod.BKGND_SET)
+                map[x][y].explored = True
 
     # Place the game objects on the off-screen
     for obj in objects:
