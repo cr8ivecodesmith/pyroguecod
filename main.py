@@ -507,6 +507,12 @@ def render_all():
     # Blit the contents of the off-screen to the main screen
     libtcod.console_blit(con, 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, 0, 0, 0)
 
+    # Show the player's stats
+    p_hp = player.fighter.hp
+    p_mhp = player.fighter.max_hp
+    libtcod.console_set_default_foreground(con, libtcod.white)
+    libtcod.console_print_ex(0, 1, SCREEN_HEIGHT - 2, libtcod.BKGND_NONE,
+                             libtcod.LEFT, 'HP: {}/{}'.format(p_hp, p_mhp))
 
 if __name__ == '__main__':
     """ Initialization of required variables and game loop.
