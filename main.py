@@ -53,7 +53,9 @@ class Object(object):
     - fov_map: FOV mapping.
 
     """
-    def __init__(self, x, y, char, color):
+    def __init__(self, x, y, char, name, color, blocks=False):
+        self.name = name
+        self.blocks = blocks
         self.x = x
         self.y = y
         self.char = char
@@ -63,7 +65,7 @@ class Object(object):
         """ Move by the given amount.
 
         """
-        if not map[self.x + dx][self.y + dy].blocked:
+        if not is_blocked(self.x + dx, self.y + dy):
             self.x += dx
             self.y += dy
 
@@ -166,18 +168,34 @@ def place_objects(room):
         # monsters or groups of monsters. We'll settle with this for now.
 
         # Choose a random a place for this monster in the room.
-        # TODO: Change this so that the monster doesn't get placed in a wall.
         x = libtcod.random_get_int(0, room.x1, room.x2)
         y = libtcod.random_get_int(0, room.y1, room.y2)
 
-        if libtcod.random_get_int(0, 0, 100) < 80:  # 80% chance it's an orc.
-            # 80% chance of an orc.
-            monster = Object(x, y, 'o', libtcod.desaturated_green)
-        else:
-            # 20% it's a troll!
-            monster = Object(x, y, 'T', libtcod.darker_green)
+        if not is_blocked(x, y):
+            if libtcod.random_get_int(0, 0, 100) < 80:
+                # 80% chance of an orc.
+                monster = Object(x, y, 'o', 'orc', libtcod.desaturated_green,
+                                 blocks=True)
+            else:
+                # 20% it's a troll!
+                monster = Object(x, y, 'T', 'troll', libtcod.darker_green,
+                                 blocks=True)
 
-        objects.append(monster)
+            objects.append(monster)
+
+
+def is_blocked(x, y):
+    """ Check whether a location on the map has a tile or a blocking object.
+
+    """
+    if map[x][y].blocked:
+        return True
+
+    for obj in objects:
+        if obj.blocks and obj.x == x and obj.y == y:
+            return True
+
+    return False
 
 
 def handle_keys():
@@ -235,7 +253,6 @@ def make_map():
     Requires the ff. variables to be initialized prior to calling this
     function:
     - player: Object instance for the main character.
-    - npc: Object instance for the npc character.
     - objects: List of game objects.
 
     """
@@ -275,11 +292,6 @@ def make_map():
 
             new_x, new_y = new_room.center()
 
-            # Add a label from 'A' to 'Z' in each room. This helps us visualize
-            # the order in which they were generated.
-            room_no = Object(new_x, new_y, chr(65+num_rooms), libtcod.white)
-            objects.insert(0, room_no)
-
             if num_rooms == 0:
                 # If this is the first room, put the player in it.
                 player.x, player.y = (new_x, new_y)
@@ -303,9 +315,6 @@ def make_map():
             # Finally append the new room to the list
             rooms.append(new_room)
             num_rooms += 1
-
-    # Put the npc on a random room.
-    npc.x, npc.y = rooms[libtcod.random_get_int(0, 0, num_rooms)].center()
 
 
 def render_all():
@@ -388,10 +397,7 @@ if __name__ == '__main__':
     libtcod.sys_set_fps(LIMIT_FPS)
 
     # Create the object representing the player.
-    player = Object(SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2, '@', libtcod.white)
-
-    # Create an NPC
-    npc = Object(SCREEN_WIDTH / 2 - 5, SCREEN_HEIGHT / 2, '@', libtcod.yellow)
+    player = Object(0, 0, '@', 'player', libtcod.white, blocks=True)
 
     # Init list of game objects.
     objects = []
@@ -399,9 +405,7 @@ if __name__ == '__main__':
     # Generate map coordinates.
     make_map()
 
-    # We make sure that the npc and player are the last items in the object
-    # list.
-    objects.append(npc)
+    # We make sure that the player is the last item in the object list.
     objects.append(player)
 
     # Initalize the FOV map.
