@@ -16,7 +16,7 @@ SCREEN_HEIGHT = 50
 LIMIT_FPS = 20
 
 MAP_WIDTH = 80
-MAP_HEIGHT = 45
+MAP_HEIGHT = 43
 
 ROOM_MAX_SIZE = 10
 ROOM_MIN_SIZE = 6
@@ -26,6 +26,10 @@ MAX_ROOM_MONSTERS = 3
 FOV_ALGO = 4  # Default FOV algorithm
 FOV_LIGHT_WALLS = True
 TORCH_RADIUS = 3
+
+BAR_WIDTH = 20
+PANEL_HEIGHT = 7
+PANEL_Y = SCREEN_HEIGHT - PANEL_HEIGHT
 
 color_dark_wall = libtcod.Color(0, 0, 100)
 color_light_wall = libtcod.Color(130, 110, 50)
@@ -481,6 +485,7 @@ def render_all():
     global fov_map
     global objects
     global player
+    global panel
 
     # Recompute the FOV and reset the flag when the player moves.
     if fov_recompute:
@@ -526,12 +531,47 @@ def render_all():
     # Blit the contents of the off-screen to the main screen
     libtcod.console_blit(con, 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, 0, 0, 0)
 
+    # Prepare the render the GUI panel
+    libtcod.console_set_default_background(panel, libtcod.black)
+    libtcod.console_clear(panel)
+
     # Show the player's stats
-    p_hp = player.fighter.hp
-    p_mhp = player.fighter.max_hp
-    libtcod.console_set_default_foreground(con, libtcod.white)
-    libtcod.console_print_ex(0, 1, SCREEN_HEIGHT - 2, libtcod.BKGND_NONE,
-                             libtcod.LEFT, 'HP: {}/{}'.format(p_hp, p_mhp))
+    render_bar(1, 1, BAR_WIDTH, 'HP', player.fighter.hp, player.fighter.max_hp,
+               libtcod.light_red, libtcod.darker_red)
+
+    # Blit the contents of the panel to the main screen
+    libtcod.console_blit(panel, 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, 0, 0,
+                         PANEL_Y)
+
+
+def render_bar(x, y, total_width, name, value, maximum, bar_color, back_color):
+    """ Generic status bar renderer.
+
+    Can be used for health bar, mana bar, experience bar, dungeon level, etc.
+
+    """
+    global panel
+
+    # determine the width of the bar to render.
+    bar_width = int(float(value) / maximum * total_width)
+
+    # render the background bar.
+    libtcod.console_set_default_background(panel, back_color)
+    libtcod.console_rect(panel, x, y, total_width, 1, False,
+                         libtcod.BKGND_SCREEN)
+
+    # render the foreground bar.
+    libtcod.console_set_default_background(panel, bar_color)
+    if bar_width > 0:
+        libtcod.console_rect(panel, x, y, bar_width, 1, False,
+                             libtcod.BKGND_SCREEN)
+
+    # render some centered text with the values
+    msg = '{}: {}/{}'.format(name, value, maximum)
+    libtcod.console_set_default_foreground(panel, libtcod.white)
+    libtcod.console_print_ex(panel, x + total_width / 2, y, libtcod.BKGND_NONE,
+                             libtcod.CENTER, msg)
+
 
 if __name__ == '__main__':
     """ Initialization of required variables and game loop.
@@ -545,6 +585,7 @@ if __name__ == '__main__':
     global player_action
     global objects
     global player
+    global panel
 
     map = None
     fov_recompute = True
@@ -585,6 +626,9 @@ if __name__ == '__main__':
             libtcod.map_set_properties(fov_map, x, y,
                                        not map[x][y].block_sight,
                                        not map[x][y].blocked)
+
+    # Init the status bar console panel.
+    panel = libtcod.console_new(SCREEN_WIDTH, PANEL_HEIGHT)
 
     while not libtcod.console_is_window_closed():
         # Render the screen.
