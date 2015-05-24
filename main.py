@@ -190,9 +190,9 @@ class Fighter(object):
     owner = None
 
     def __init__(self, hp, defense, power, xp, death_function=None):
-        self.max_hp = hp
+        self.base_max_hp = hp
         self.hp = hp
-        self.defense = defense
+        self.base_defense = defense
         self.base_power = power
         self.xp = xp
         self.death_function = death_function
@@ -201,6 +201,16 @@ class Fighter(object):
     def power(self):
         bonus = sum(eq.power_bonus for eq in get_all_equipped(self.owner))
         return self.base_power + bonus
+
+    @property
+    def defense(self):
+        bonus = sum(eq.defense_bonus for eq in get_all_equipped(self.owner))
+        return self.base_defense + bonus
+
+    @property
+    def max_hp(self):
+        bonus = sum(eq.max_hp_bonus for eq in get_all_equipped(self.owner))
+        return self.base_max_hp + bonus
 
     def take_damage(self, damage):
         global player
@@ -555,7 +565,12 @@ def place_objects(room):
     # chance of each item
     item_chances = {
         'healing': 35,
-        'sword': 25,
+        'sword': from_dungeon_level([
+            (5, 4),
+        ]),
+        'shield': from_dungeon_level([
+            (15, 8),
+        ]),
         'lightning': from_dungeon_level([
             (25, 4),
         ]),
@@ -617,8 +632,15 @@ def place_objects(room):
             elif choice == 'sword':
                 name = 'sword'
                 equipment_component = Equipment(slot='right hand',
-                                                power_bonus=1)
+                                                power_bonus=3)
                 item = Object(x, y, '/', name, libtcod.sky,
+                              always_visible=True,
+                              equipment=equipment_component)
+            elif choice == 'shield':
+                name = 'shield'
+                equipment_component = Equipment(slot='left hand',
+                                                defense_bonus=1)
+                item = Object(x, y, '[', name, libtcod.darker_orange,
                               always_visible=True,
                               equipment=equipment_component)
             elif choice == 'lightning':
@@ -683,9 +705,10 @@ def check_level_up():
 
         choice = None
         choices = [
-            'Constitution (+20 HP, from {})'.format(player.fighter.max_hp),
+            'Constitution (+20 HP, from {})'.format(
+                player.fighter.base_max_hp),
             'Strength (+1 attack, from {})'.format(player.fighter.base_power),
-            'Agility (+1 defense, from {})'.format(player.fighter.defense)
+            'Agility (+1 defense, from {})'.format(player.fighter.base_defense)
         ]
 
         while choice is None:
@@ -693,12 +716,12 @@ def check_level_up():
                           LEVEL_SCREEN_WIDTH)
 
         if choice == 0:
-            player.fighter.max_hp += 20
+            player.fighter.base_max_hp += 20
             player.fighter.hp += 20
         elif choice == 1:
             player.fighter.base_power += 1
         elif choice == 2:
-            player.fighter.defense += 1
+            player.fighter.base_defense += 1
 
 
 def closest_monster(max_range):
@@ -1402,7 +1425,7 @@ def new_game():
     game_msgs = []
 
     # Create the object representing the player.
-    fighter_component = Fighter(hp=100, defense=1, power=4, xp=0,
+    fighter_component = Fighter(hp=100, defense=1, power=2, xp=0,
                                 death_function=player_death)
     player = Object(0, 0, '@', 'player', libtcod.white, blocks=True,
                     fighter=fighter_component)
@@ -1411,6 +1434,13 @@ def new_game():
     # Generate map coordinates.
     dungeon_level = 1
     make_map()
+
+    # Initial equipment: a dagger
+    equipment_component = Equipment(slot='right hand', power_bonus=2)
+    weapon = Object(0, 0, '-', 'dagger', libtcod.sky, always_visible=True,
+                    equipment=equipment_component)
+    inventory.append(weapon)
+    equipment_component.equip()
 
     # Set the welcome message.
     message('Welcome stranger! Seek your glory and prepare to perish in the '
