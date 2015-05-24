@@ -260,7 +260,8 @@ class ConfusedMonster(object):
         global player
 
         if self.num_turns > 0:
-            self.owner.move(dice(1, min=-1), dice(1, min=-1))
+            self.owner.move(libtcod.random_int_choice(0, -1, 1),
+                            libtcod.random_int_choice(0, -1, 1))
             self.num_turns -= 1
         else:
             self.owner.ai = self.old_ai
@@ -378,11 +379,28 @@ def create_v_tunnel(y1, y2, x):
         map[x][y].block_sight = False
 
 
-def dice(max, min=1, seed=0):
-    """ Dice function
+def random_choice_index(chances):
+    """ Determine where in the list the random choice lands and return the
+        corresponding index.
 
     """
-    return libtcod.random_get_int(seed, min, max)
+    dice = libtcod.random_get_int(0, 1, sum(chances))
+
+    running_sum = 0
+    choice = 0
+    for idx, value in enumerate(chances):
+        running_sum += value
+        if dice <= running_sum:
+            return idx
+
+
+def random_choice(chances_dict):
+    """ Pick a random item in the dictionary and return the key.
+
+    """
+    chances = chances_dict.values()
+    keys = chances_dict.keys()
+    return keys[random_choice_index(chances)]
 
 
 def place_objects(room):
@@ -390,6 +408,17 @@ def place_objects(room):
 
     """
     global objects
+
+    monster_chances = {
+        'orc': 80,
+        'goblin': 20,
+    }
+    item_chances = {
+        'healing': 70,
+        'lightning': 10,
+        'fireball': 10,
+        'confuse': 10,
+    }
 
     num_monsters = libtcod.random_get_int(0, 0, MAX_ROOM_MONSTERS)
     num_items = libtcod.random_get_int(0, 0, MAX_ROOM_ITEMS)
@@ -404,16 +433,16 @@ def place_objects(room):
         y = libtcod.random_get_int(0, room.y1 + 1, room.y2 - 1)
 
         if not is_blocked(x, y):
-            if dice(100) < 80:
-                # 80% chance of an orc.
+            monster = None
+            choice = random_choice(monster_chances)
+            if choice == 'orc':
                 fighter_component = Fighter(hp=10, defense=0, power=3, xp=35,
                                             death_function=monster_death)
                 ai_component = BasicMonster()
                 monster = Object(x, y, 'o', 'orc', libtcod.desaturated_green,
                                  blocks=True, fighter=fighter_component,
                                  ai=ai_component)
-            else:
-                # 20% it's a troll!
+            elif choice == 'troll':
                 fighter_component = Fighter(hp=16, defense=1, power=4, xp=100,
                                             death_function=monster_death)
                 ai_component = BasicMonster()
@@ -421,7 +450,8 @@ def place_objects(room):
                                  blocks=True, fighter=fighter_component,
                                  ai=ai_component)
 
-            objects.append(monster)
+            if monster:
+                objects.append(monster)
 
     # Place the items
     for i in range(num_items):
@@ -430,33 +460,32 @@ def place_objects(room):
         y = libtcod.random_get_int(0, room.y1 + 1, room.y2 - 1)
 
         if not is_blocked(x, y):
-            roll = dice(100)
-            if roll < 70:
-                # create a healing potion
+            item = None
+            choice = random_choice(item_chances)
+            if choice == 'healing':
+                name = 'healing potion'
                 item_component = Item(use_function=cast_heal)
-                item = Object(x, y, '!', 'healing potion', libtcod.violet,
+                item = Object(x, y, '!', name, libtcod.violet,
                               always_visible=True, item=item_component)
-            elif roll < 70 + 10:
-                # %10 chance to create a lightning scroll
+            elif choice == 'lightning':
                 name = 'scroll of lightning bolt'
                 item_component = Item(use_function=cast_lightning)
                 item = Object(x, y, '#', name, libtcod.light_yellow,
                               always_visible=True, item=item_component)
-            elif roll < 70 + 10 + 10:
-                # %10 chance to create a fireball scroll
+            elif choice == 'fireball':
                 name = 'scroll of fireball'
                 item_component = Item(use_function=cast_fireball)
                 item = Object(x, y, '#', name, libtcod.light_yellow,
                               always_visible=True, item=item_component)
-            else:
-                # %10 chance to create a confuse scroll
+            elif choice == 'confusion':
                 name = 'scroll of confusion'
                 item_component = Item(use_function=cast_confuse)
                 item = Object(x, y, '#', name, libtcod.light_yellow,
                               always_visible=True, item=item_component)
 
-            objects.append(item)
-            item.send_to_back()
+            if item:
+                objects.append(item)
+                item.send_to_back()
 
 
 def is_blocked(x, y):
