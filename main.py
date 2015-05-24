@@ -249,8 +249,6 @@ class ConfusedMonster(object):
         if self.num_turns > 0:
             self.owner.move(dice(1, min=-1), dice(1, min=-1))
             self.num_turns -= 1
-            message('The {} walks about in a daze.'.format(self.owner.name),
-                    libtcod.red)
         else:
             self.owner.ai = self.old_ai
             message('The {} is no longer confused!'.format(self.owner.name),
@@ -292,6 +290,15 @@ class Item(object):
                 inventory.remove(self.owner)
             else:
                 message('Cancelled.', libtcod.red)
+
+    def drop(self):
+        global player, objects, inventory
+
+        objects.append(self.owner)
+        inventory.remove(self.owner)
+        self.owner.x = player.x
+        self.owner.y = player.y
+        message('You dropped the {}.'.format(self.owner.name), libtcod.yellow)
 
 
 class Rect(object):
@@ -521,9 +528,9 @@ def target_monster(max_range=None):
         if x is None:
             return None
 
-    for obj in objects:
-        if obj.x == x and obj.y == y and obj.fighter and obj != player:
-            return obj
+        for obj in objects:
+            if obj.x == x and obj.y == y and obj.fighter and obj != player:
+                return obj
 
 
 def player_move_or_attack(dx, dy):
@@ -616,7 +623,7 @@ def cast_confuse():
         return 'cancelled'
 
     old_ai = monster.ai
-    monster.ai = ConfuseMonster(old_ai)
+    monster.ai = ConfusedMonster(old_ai)
     monster.ai.owner = monster
     message('The eyes of the {} look vacant as it starts to stumble '
             'around!'.format(monster.name), libtcod.light_green)
@@ -758,6 +765,9 @@ def handle_keys():
             player_move_or_attack(1, 1)
         else:
             # test for other keys
+            if key_char == '.':
+                message('pass', libtcod.violet)
+                return 'pass-turn'
             if key_char == 'g':
                 # pick up an item
                 for obj in objects:
@@ -771,6 +781,13 @@ def handle_keys():
                                              '\n')
                 if chosen_item:
                     chosen_item.use()
+            if key_char == 'd':
+                # show the inventory
+                chosen_item = inventory_menu('Press the key next to an item '
+                                             'to drop it, or any key to '
+                                             'cancel.\n')
+                if chosen_item:
+                    chosen_item.drop()
 
             return 'didnt-take-turn'
 
@@ -1074,7 +1091,10 @@ if __name__ == '__main__':
             break
 
         # Let monsters take their turn
-        if game_state == 'playing' and player_action != 'didnt-take-turn':
+        if (
+            game_state == 'playing' and player_action != 'didnt-take-turn' or
+            player_action == 'pass-turn'
+        ):
             for obj in objects:
                 if obj.ai:
                     obj.ai.take_turn()
