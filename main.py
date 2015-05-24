@@ -193,9 +193,14 @@ class Fighter(object):
         self.max_hp = hp
         self.hp = hp
         self.defense = defense
-        self.power = power
+        self.base_power = power
         self.xp = xp
         self.death_function = death_function
+
+    @property
+    def power(self):
+        bonus = sum(eq.power_bonus for eq in get_all_equipped(self.owner))
+        return self.base_power + bonus
 
     def take_damage(self, damage):
         global player
@@ -345,9 +350,12 @@ class Equipment(object):
     """
     owner = None
 
-    def __init__(self, slot):
+    def __init__(self, slot, power_bonus=0, defense_bonus=0, max_hp_bonus=0):
         self.slot = slot
         self.is_equipped = False
+        self.power_bonus = power_bonus
+        self.defense_bonus = defense_bonus
+        self.max_hp_bonus = max_hp_bonus
 
     def toggle_equip(self):
         if self.is_equipped:
@@ -502,6 +510,19 @@ def get_equipment_in_slot(slot):
     return None
 
 
+def get_all_equipped(obj):
+    """ Returns a list of all equipped items
+
+    """
+    global player, inventory
+    equipped_list = []
+    if obj == player:
+        for item in inventory:
+            if item.equipment and item.equipment.is_equipped:
+                equipped_list.append(item.equipment)
+    return equipped_list
+
+
 def place_objects(room):
     """ Place objects in a room.
 
@@ -595,7 +616,8 @@ def place_objects(room):
                               always_visible=True, item=item_component)
             elif choice == 'sword':
                 name = 'sword'
-                equipment_component = Equipment(slot='right hand')
+                equipment_component = Equipment(slot='right hand',
+                                                power_bonus=1)
                 item = Object(x, y, '/', name, libtcod.sky,
                               always_visible=True,
                               equipment=equipment_component)
@@ -662,7 +684,7 @@ def check_level_up():
         choice = None
         choices = [
             'Constitution (+20 HP, from {})'.format(player.fighter.max_hp),
-            'Strength (+1 attack, from {})'.format(player.fighter.power),
+            'Strength (+1 attack, from {})'.format(player.fighter.base_power),
             'Agility (+1 defense, from {})'.format(player.fighter.defense)
         ]
 
@@ -674,7 +696,7 @@ def check_level_up():
             player.fighter.max_hp += 20
             player.fighter.hp += 20
         elif choice == 1:
-            player.fighter.power += 1
+            player.fighter.base_power += 1
         elif choice == 2:
             player.fighter.defense += 1
 
