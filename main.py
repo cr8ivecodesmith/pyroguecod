@@ -290,6 +290,8 @@ class Item(object):
             if self.use_function() != 'cancelled':
                 # destroy after use unless it was cancelled.
                 inventory.remove(self.owner)
+            else:
+                message('Cancelled.', libtcod.red)
 
 
 class Rect(object):
@@ -508,6 +510,22 @@ def target_tile(max_range=None):
             return (None, None)
 
 
+def target_monster(max_range=None):
+    """ Return the monster clicked within FOV or None if cancelled.
+
+    """
+    global objects, player
+
+    while True:
+        x, y = target_tile(max_range)
+        if x is None:
+            return None
+
+    for obj in objects:
+        if obj.x == x and obj.y == y and obj.fighter and obj != player:
+            return obj
+
+
 def player_move_or_attack(dx, dy):
     """ Handle player action to either move or attack
 
@@ -589,16 +607,19 @@ def cast_confuse():
     """ Cast confusion to the closest monster in FOV
 
     """
-    monster = closest_monster(CONFUSE_RANGE)
+    global objects
+
+    message('Left-click an enemy to confuse it, or right-click to cancel.',
+            libtcod.light_cyan)
+    monster = target_monster(CONFUSE_RANGE)
     if not monster:
-        message('No enemy is close enough to confuse.', libtcod.red)
         return 'cancelled'
 
     old_ai = monster.ai
     monster.ai = ConfuseMonster(old_ai)
     monster.ai.owner = monster
-    message('The eyes of the {} look vacant as it starts to stumble around!',
-            libtcod.light_green)
+    message('The eyes of the {} look vacant as it starts to stumble '
+            'around!'.format(monster.name), libtcod.light_green)
 
 
 def player_death(player):
