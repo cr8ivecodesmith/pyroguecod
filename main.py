@@ -551,6 +551,14 @@ def handle_keys():
             player_move_or_attack(-1, 0)
         elif key.vk == libtcod.KEY_RIGHT or key_char == 'l':
             player_move_or_attack(1, 0)
+        elif key_char == 'y':
+            player_move_or_attack(-1, -1)
+        elif key_char == 'u':
+            player_move_or_attack(1, -1)
+        elif key_char == 'b':
+            player_move_or_attack(-1, 1)
+        elif key_char == 'n':
+            player_move_or_attack(1, 1)
         else:
             # test for other keys
             if key_char == 'g':
