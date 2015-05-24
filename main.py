@@ -27,7 +27,7 @@ MAX_ROOM_ITEMS = 2
 
 FOV_ALGO = 4  # Default FOV algorithm
 FOV_LIGHT_WALLS = True
-TORCH_RADIUS = 3
+TORCH_RADIUS = 6
 
 BAR_WIDTH = 20
 PANEL_HEIGHT = 7
@@ -39,6 +39,8 @@ MSG_HEIGHT = PANEL_HEIGHT - 1
 
 INVENTORY_WIDTH = 50
 HEAL_AMOUNT = 4
+LIGHTNING_DAMAGE = 20
+LIGHTNING_RANGE = 5
 
 color_dark_wall = libtcod.Color(0, 0, 100)
 color_light_wall = libtcod.Color(130, 110, 50)
@@ -139,9 +141,8 @@ class Object(object):
 
         """
         global con
-        global fov_map
 
-        if libtcod.map_is_in_fov(fov_map, self.x, self.y):
+        if in_fov(self.x, self.y):
             libtcod.console_set_default_foreground(con, self.color)
             libtcod.console_put_char(con, self.x, self.y, self.char,
                                      libtcod.BKGND_NONE)
@@ -193,7 +194,8 @@ class Fighter(object):
             message(msg)
 
     def heal(self, amount):
-        if self.hp > self.max_hp:
+        heal_value = self.hp + amount
+        if heal_value >= self.max_hp:
             self.hp = self.max_hp
         else:
             self.hp += amount
@@ -206,11 +208,10 @@ class BasicMonster(object):
     owner = None
 
     def take_turn(self):
-        global fov_map
         global player
 
         monster = self.owner
-        if libtcod.map_is_in_fov(fov_map, monster.x, monster.y):
+        if in_fov(monster.x, monster.y):
             # move towards the player
             if monster.distance_to(player) >= 2:
                 monster.move_towards(player.x, player.y)
@@ -317,6 +318,13 @@ def create_v_tunnel(y1, y2, x):
         map[x][y].block_sight = False
 
 
+def dice(max, min=1, seed=0):
+    """ Dice function
+
+    """
+    return libtcod.random_get_int(seed, min, max)
+
+
 def place_objects(room):
     """ Place objects in a room.
 
@@ -336,7 +344,7 @@ def place_objects(room):
         y = libtcod.random_get_int(0, room.y1 + 1, room.y2 - 1)
 
         if not is_blocked(x, y):
-            if libtcod.random_get_int(0, 0, 100) < 80:
+            if dice(100) < 80:
                 # 80% chance of an orc.
                 fighter_component = Fighter(hp=10, defense=0, power=3,
                                             death_function=monster_death)
@@ -362,10 +370,17 @@ def place_objects(room):
         y = libtcod.random_get_int(0, room.y1 + 1, room.y2 - 1)
 
         if not is_blocked(x, y):
-            # create a healing potion
-            item_component = Item(use_function=cast_heal)
-            item = Object(x, y, '!', 'healing potion', libtcod.violet,
-                          item=item_component)
+            if dice(100) < 70:
+                # create a healing potion
+                item_component = Item(use_function=cast_heal)
+                item = Object(x, y, '!', 'healing potion', libtcod.violet,
+                              item=item_component)
+            else:
+                # %30 chance to create a lightning scroll
+                name = 'scroll of lightning bolt'
+                item_component = Item(use_function=cast_lightning)
+                item = Object(x, y, '#', name, libtcod.light_yellow,
+                              item=item_component)
             objects.append(item)
             item.send_to_back()
 
@@ -384,6 +399,34 @@ def is_blocked(x, y):
             return True
 
     return False
+
+
+def in_fov(x, y):
+    """ Check if given coordinates is within the fov.
+
+    """
+    global player
+    global fov_map
+    return True if libtcod.map_is_in_fov(fov_map, x, y) else False
+
+
+def closest_monster(max_range):
+    """ Find the closest monster within the given range and FOV
+
+    """
+    global objects
+    global player
+
+    closest_enemy = None
+    closest_dist = max_range + 1  # start with (slightly more) max range.
+
+    for obj in objects:
+        if obj.fighter and obj != player and in_fov(obj.x, obj.y):
+            dist = player.distance_to(obj)
+            if dist < closest_dist:
+                closest_enemy = obj
+                closest_dist = dist
+    return closest_enemy
 
 
 def player_move_or_attack(dx, dy):
@@ -424,6 +467,20 @@ def cast_heal():
         return 'cancelled'
     message('Your wounds start to feel better!', libtcod.light_violet)
     player.fighter.heal(HEAL_AMOUNT)
+
+
+def cast_lightning():
+    """ Cast lightning bolt to a random monster
+
+    """
+    monster = closest_monster(LIGHTNING_RANGE)
+    if not monster:
+        message('No enemy is close enough to strike.', libtcod.red)
+        return 'cancelled'
+
+    message('A lightning bolt strikes the {} with a loud thunder! The damage '
+            'is {} hit points.'.format(monster.name, LIGHTNING_DAMAGE))
+    monster.fighter.take_damage(LIGHTNING_DAMAGE)
 
 
 def player_death(player):
@@ -503,7 +560,6 @@ def menu(header, options, width):
     index = key.c - ord('a')
     if index >= 0 and index < len(options):
         return index
-
     return None
 
 
@@ -520,7 +576,9 @@ def inventory_menu(header):
         options = [item.name for item in inventory]
 
     index = menu(header, options, INVENTORY_WIDTH)
-    return None if index is None or not len(inventory) else inventory[index].item
+    if index is None or not len(inventory):
+        return None
+    return inventory[index].item
 
 
 def handle_keys():
@@ -569,8 +627,9 @@ def handle_keys():
                         break
             if key_char == 'i':
                 # show the inventory
-                chosen_item = inventory_menu('Press the key next to an item to'
-                                             'use it, or any key to cancel.\n')
+                chosen_item = inventory_menu('Press the key next to an item '
+                                             'to use it, or any key to cancel.'
+                                             '\n')
                 if chosen_item:
                     chosen_item.use()
 
@@ -583,12 +642,10 @@ def get_names_under_mouse():
 
     """
     global mouse
-    global fov_map
 
     x, y = (mouse.cx, mouse.cy)
     names = [o.name for o in objects
-             if o.x == x and o.y == y and libtcod.map_is_in_fov(fov_map, o.x,
-                                                                o.y)]
+             if o.x == x and o.y == y and in_fov(o.x, o.y)]
     names = ', '.join(names)
     return names.capitalize()
 
@@ -699,7 +756,7 @@ def render_all():
     # Go through all the tiles and set their color
     for y in range(MAP_HEIGHT):
         for x in range(MAP_WIDTH):
-            visible = libtcod.map_is_in_fov(fov_map, x, y)
+            visible = in_fov(x, y)
             wall = map[x][y].block_sight
 
             # Use the global dark or light colors depending on the visibility
