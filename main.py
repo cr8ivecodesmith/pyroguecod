@@ -288,8 +288,7 @@ class Item(object):
         self.use_function = use_function
 
     def pick_up(self):
-        global inventory
-        global objects
+        global inventory, objects
 
         if len(inventory) >= 26:
             message('Your inventory is full, cannot pick up {}.'.format(
@@ -299,6 +298,11 @@ class Item(object):
             objects.remove(self.owner)
             message('You picked up the {}!'.format(self.owner.name),
                     libtcod.green)
+
+        # special case: if item is an equipment, equip it if the slot is unused
+        equipment = self.owner.equipment
+        if equipment and not get_equipment_in_slot(equipment.slot):
+            equipment.equip()
 
     def use(self):
         global inventory
@@ -324,6 +328,11 @@ class Item(object):
         inventory.remove(self.owner)
         self.owner.x = player.x
         self.owner.y = player.y
+
+        # special case for equipped equipment
+        if self.owner.equipment:
+            self.owner.equipment.dequip()
+
         message('You dropped the {}.'.format(self.owner.name), libtcod.yellow)
 
 
@@ -349,7 +358,13 @@ class Equipment(object):
     def equip(self):
         """ Equip object and show a message about it.
 
+        Unequip the equipment currently equipped on the slot if any.
+
         """
+        old_equipment = get_equipment_in_slot(self.slot)
+        if old_equipment:
+            old_equipment.dequip()
+
         self.is_equipped = True
         message('Equipped {} on {}'.format(self.owner.name, self.slot),
                 libtcod.light_green)
@@ -471,6 +486,20 @@ def from_dungeon_level(table):
             return value
 
     return 0
+
+
+def get_equipment_in_slot(slot):
+    """ Check if any item occupies the slot and return it
+
+    """
+    global inventory
+    for obj in inventory:
+        if (
+            obj.equipment and obj.equipment.slot == slot and
+            obj.equipment.is_equipped
+        ):
+            return obj.equipment
+    return None
 
 
 def place_objects(room):
@@ -906,7 +935,12 @@ def inventory_menu(header):
     if not len(inventory):
         options = ['Inventory is empty.']
     else:
-        options = [item.name for item in inventory]
+        options = []
+        for item in inventory:
+            text = item.name
+            if item.equipment and item.equipment.is_equipped:
+                text = '{} (on {})'.format(text, item.equipment.slot)
+            options.append(text)
 
     index = menu(header, options, INVENTORY_WIDTH)
     if index is None or not len(inventory):
