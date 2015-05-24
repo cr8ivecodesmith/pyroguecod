@@ -6,6 +6,7 @@ from __future__ import print_function
 
 import math
 import textwrap
+import shelve
 
 import libtcodpy as libtcod
 
@@ -937,6 +938,13 @@ def render_bar(x, y, total_width, name, value, maximum, bar_color, back_color):
                              libtcod.CENTER, msg)
 
 
+def msgbox(text, width=50):
+    """ Uses the menu() as message box
+
+    """
+    menu(text, [], width)
+
+
 def main_menu():
     """ Game main menu
 
@@ -961,8 +969,58 @@ def main_menu():
         if choice == 0:  # New game
             new_game()
             play_game()
+        elif choice == 1:
+            try:
+                load_game()
+                play_game()
+            except Exception as e:
+                print(e)
+                msgbox('\nNo saved game to load.\n', 24)
+                continue
         elif choice == 2:  # Quit
             break
+
+
+def save_game():
+    """ Saves the game
+
+    There's a quirk here in that when more than one variable references the
+    same object, shelve with store a copy of the object resulting in duplicated
+    entry.
+
+    This is the case if we keep the `player` object seperately since the same
+    object is also referenced in the `objects` object. To overcome this, we
+    just store the index of the `player` object in the `objects` list.
+
+    """
+    global map, objects, player, inventory, game_msgs, game_state
+
+    file = shelve.open('savegame', 'n')
+    file['map'] = map
+    file['objects'] = objects
+    file['player_index'] = objects.index(player)
+    file['inventory'] = inventory
+    file['game_msgs'] = game_msgs
+    file['game_state'] = game_state
+    file.close()
+
+
+def load_game():
+    """ Loads the game
+
+    """
+    global map, objects, player, inventory, game_msgs, game_state
+
+    file = shelve.open('savegame', 'r')
+    map = file['map']
+    objects = file['objects']
+    player = objects[file['player_index']]
+    inventory = file['inventory']
+    game_msgs = file['game_msgs']
+    game_state = file['game_state']
+    file.close()
+
+    initialize_fov()
 
 
 def make_map():
@@ -1108,6 +1166,7 @@ def play_game():
         player_action = handle_keys()
 
         if player_action == 'exit':
+            save_game()
             break
 
         # Let monsters take their turn

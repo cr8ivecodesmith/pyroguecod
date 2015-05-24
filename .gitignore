@@ -1,4 +1,5 @@
 python
+savegame
 *.py[co]
 __pycache__
 *.tmp
