@@ -673,6 +673,8 @@ def menu(header, options, width):
     # option.
     header_height = libtcod.console_get_height_rect(con, 0, 0, width,
                                                     SCREEN_HEIGHT, header)
+    if not len(header):
+        header_height = 0
     height = len(options) + header_height
 
     # Create an off-screen console that represents the menu's window
@@ -703,6 +705,10 @@ def menu(header, options, width):
 
     # Watch out for key presses and return the options index.
     key = libtcod.console_wait_for_keypress(True)
+
+    if key.vk == libtcod.KEY_ENTER and key.lalt:
+        libtcod.console_set_fullscreen(not libtcod.console_is_fullscreen())
+
     index = key.c - ord('a')
     if index >= 0 and index < len(options):
         return index
@@ -931,6 +937,34 @@ def render_bar(x, y, total_width, name, value, maximum, bar_color, back_color):
                              libtcod.CENTER, msg)
 
 
+def main_menu():
+    """ Game main menu
+
+    """
+    img = libtcod.image_load('menu_background.png')
+    title = 'Rumble in the Underdeep'
+    author = 'By @cr8ivecodesmith'
+
+    while not libtcod.console_is_window_closed():
+        # blit the bg image at twice the regular console resolution
+        libtcod.image_blit_2x(img, 0, 0, 0)
+
+        libtcod.console_set_default_foreground(0, libtcod.gold)
+        libtcod.console_print_ex(0, SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2 - 4,
+                                 libtcod.BKGND_NONE, libtcod.CENTER, title)
+        libtcod.console_print_ex(0, SCREEN_WIDTH / 2, SCREEN_HEIGHT - 2,
+                                 libtcod.BKGND_NONE, libtcod.CENTER, author)
+
+        # show the options and wait for the player's input
+        choice = menu('', ['New game', 'Continue', 'Quit'], 24)
+
+        if choice == 0:  # New game
+            new_game()
+            play_game()
+        elif choice == 2:  # Quit
+            break
+
+
 def make_map():
     """ Generates the map coordinates
 
@@ -1008,9 +1042,11 @@ def initialize_fov():
     """ Create the FOV map according to the generated map.
 
     """
-    global fov_recompute, fov_map
+    global fov_recompute, fov_map, con
 
     fov_recompute = True
+
+    libtcod.console_clear(con)
 
     # Initalize the FOV map.
     fov_map = libtcod.map_new(MAP_WIDTH, MAP_HEIGHT)
@@ -1109,5 +1145,4 @@ if __name__ == '__main__':
     # Init the status bar console panel.
     panel = libtcod.console_new(SCREEN_WIDTH, PANEL_HEIGHT)
 
-    new_game()
-    play_game()
+    main_menu()
