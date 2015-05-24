@@ -806,77 +806,6 @@ def get_names_under_mouse():
     return names.capitalize()
 
 
-def make_map():
-    """ Generates the map coordinates
-
-    Room generation logic:
-    Pick a random location for the first room and carve it. Then pick another
-    location for the second; if it doesn't overlap with the first. Connect the
-    two with a tunnel. Repeat.
-
-    """
-    global map
-    global player
-
-    # Fill map with unblocked tiles
-    # Access the map: map[x][y]
-    map = [[Tile(True) for y in range(MAP_HEIGHT)]
-           for x in range(MAP_WIDTH)]
-
-    rooms = []
-    num_rooms = 0
-    for r in range(MAX_ROOMS):
-        # Random width and height
-        w = libtcod.random_get_int(0, ROOM_MIN_SIZE, ROOM_MAX_SIZE)
-        h = libtcod.random_get_int(0, ROOM_MIN_SIZE, ROOM_MAX_SIZE)
-
-        # Random pos without going out of map boundaries
-        x = libtcod.random_get_int(0, 0, MAP_WIDTH - w - 1)
-        y = libtcod.random_get_int(0, 0, MAP_HEIGHT - h - 1)
-
-        new_room = Rect(x, y, w, h)
-
-        # Check if the other rooms intersect with this room.
-        failed = False
-        for other_room in rooms:
-            if new_room.intersect(other_room):
-                failed = True
-                break
-
-        if not failed:
-            # "paint" it to the map.
-            create_room(new_room)
-
-            # put objects in it such as monsters.
-            place_objects(new_room)
-
-            new_x, new_y = new_room.center()
-
-            if num_rooms == 0:
-                # If this is the first room, put the player in it.
-                player.x, player.y = (new_x, new_y)
-            else:
-                # All rooms after the first connects to the previous room with
-                # a tunnel.
-
-                # Center coords of the previous room.
-                prev_x, prev_y = rooms[num_rooms - 1].center()
-
-                # Draw a coin (random 0 or 1)
-                if libtcod.random_get_int(0, 0, 1) == 1:
-                    # First move horizontally, then vertically.
-                    create_h_tunnel(prev_x, new_x, prev_y)
-                    create_v_tunnel(prev_y, new_y, new_x)
-                else:
-                    # Do the opposite.
-                    create_v_tunnel(prev_y, new_y, prev_x)
-                    create_h_tunnel(prev_x, new_x, new_y)
-
-            # Finally append the new room to the list
-            rooms.append(new_room)
-            num_rooms += 1
-
-
 def message(new_msg, color=libtcod.white):
     global game_msgs
 
@@ -1002,59 +931,86 @@ def render_bar(x, y, total_width, name, value, maximum, bar_color, back_color):
                              libtcod.CENTER, msg)
 
 
-if __name__ == '__main__':
-    """ Initialization of required variables and game loop.
+def make_map():
+    """ Generates the map coordinates
+
+    Room generation logic:
+    Pick a random location for the first room and carve it. Then pick another
+    location for the second; if it doesn't overlap with the first. Connect the
+    two with a tunnel. Repeat.
 
     """
-    global con
-    global map
-    global fov_recompute
-    global fov_map
-    global game_state
-    global player_action
-    global objects
-    global player
-    global panel
-    global game_msgs
-    global key
-    global mouse
-    global inventory
-
-    map = None
-    fov_recompute = True
-    game_state = 'playing'
-    player_action = None
-    game_msgs = []
-    key = libtcod.Key()
-    mouse = libtcod.Mouse()
-    inventory = []
-
-    # Set the font.
-    libtcod.console_set_custom_font('terminal10x10.png',
-                                    libtcod.FONT_TYPE_GREYSCALE |
-                                    libtcod.FONT_LAYOUT_TCOD)
-
-    # Init the main screen.
-    libtcod.console_init_root(SCREEN_WIDTH, SCREEN_HEIGHT,
-                              'pyroguecod tutorial', False)
-
-    # Init an off-screen console to be used as a buffer.
-    con = libtcod.console_new(SCREEN_WIDTH, SCREEN_HEIGHT)
-
-    # Set FPS. This does not have an effect for turn-based games.
-    libtcod.sys_set_fps(LIMIT_FPS)
-
-    # Create the object representing the player.
-    fighter_component = Fighter(hp=30, defense=2, power=5,
-                                death_function=player_death)
-    player = Object(0, 0, '@', 'player', libtcod.white, blocks=True,
-                    fighter=fighter_component)
+    global map, player, objects
 
     # Init list of game objects.
     objects = [player]
 
-    # Generate map coordinates.
-    make_map()
+    # Fill map with unblocked tiles
+    # Access the map: map[x][y]
+    map = [[Tile(True) for y in range(MAP_HEIGHT)]
+           for x in range(MAP_WIDTH)]
+
+    rooms = []
+    num_rooms = 0
+    for r in range(MAX_ROOMS):
+        # Random width and height
+        w = libtcod.random_get_int(0, ROOM_MIN_SIZE, ROOM_MAX_SIZE)
+        h = libtcod.random_get_int(0, ROOM_MIN_SIZE, ROOM_MAX_SIZE)
+
+        # Random pos without going out of map boundaries
+        x = libtcod.random_get_int(0, 0, MAP_WIDTH - w - 1)
+        y = libtcod.random_get_int(0, 0, MAP_HEIGHT - h - 1)
+
+        new_room = Rect(x, y, w, h)
+
+        # Check if the other rooms intersect with this room.
+        failed = False
+        for other_room in rooms:
+            if new_room.intersect(other_room):
+                failed = True
+                break
+
+        if not failed:
+            # "paint" it to the map.
+            create_room(new_room)
+
+            # put objects in it such as monsters.
+            place_objects(new_room)
+
+            new_x, new_y = new_room.center()
+
+            if num_rooms == 0:
+                # If this is the first room, put the player in it.
+                player.x, player.y = (new_x, new_y)
+            else:
+                # All rooms after the first connects to the previous room with
+                # a tunnel.
+
+                # Center coords of the previous room.
+                prev_x, prev_y = rooms[num_rooms - 1].center()
+
+                # Draw a coin (random 0 or 1)
+                if libtcod.random_get_int(0, 0, 1) == 1:
+                    # First move horizontally, then vertically.
+                    create_h_tunnel(prev_x, new_x, prev_y)
+                    create_v_tunnel(prev_y, new_y, new_x)
+                else:
+                    # Do the opposite.
+                    create_v_tunnel(prev_y, new_y, prev_x)
+                    create_h_tunnel(prev_x, new_x, new_y)
+
+            # Finally append the new room to the list
+            rooms.append(new_room)
+            num_rooms += 1
+
+
+def initialize_fov():
+    """ Create the FOV map according to the generated map.
+
+    """
+    global fov_recompute, fov_map
+
+    fov_recompute = True
 
     # Initalize the FOV map.
     fov_map = libtcod.map_new(MAP_WIDTH, MAP_HEIGHT)
@@ -1064,12 +1020,40 @@ if __name__ == '__main__':
                                        not map[x][y].block_sight,
                                        not map[x][y].blocked)
 
-    # Init the status bar console panel.
-    panel = libtcod.console_new(SCREEN_WIDTH, PANEL_HEIGHT)
+
+def new_game():
+    """ Initalize variables on a new game
+
+    """
+    global player, inventory, game_msgs, game_state
+
+    game_state = 'playing'
+    inventory = []
+    game_msgs = []
+
+    # Create the object representing the player.
+    fighter_component = Fighter(hp=30, defense=2, power=5,
+                                death_function=player_death)
+    player = Object(0, 0, '@', 'player', libtcod.white, blocks=True,
+                    fighter=fighter_component)
+
+    # Generate map coordinates.
+    make_map()
 
     # Set the welcome message.
     message('Welcome stranger! Prepare to perish in the tombs of the Ancient '
             'Kings.', libtcod.red)
+
+    # Initialize the FOV
+    initialize_fov()
+
+
+def play_game():
+    global key, mouse, player_action
+
+    player_action = None
+    key = libtcod.Key()
+    mouse = libtcod.Mouse()
 
     while not libtcod.console_is_window_closed():
         # Check for mouse of key press events
@@ -1098,3 +1082,32 @@ if __name__ == '__main__':
             for obj in objects:
                 if obj.ai:
                     obj.ai.take_turn()
+
+
+if __name__ == '__main__':
+    """ Initialization of required variables and game loop.
+
+    """
+    global con
+    global panel
+
+    # Set the font.
+    libtcod.console_set_custom_font('terminal10x10.png',
+                                    libtcod.FONT_TYPE_GREYSCALE |
+                                    libtcod.FONT_LAYOUT_TCOD)
+
+    # Init the main screen.
+    libtcod.console_init_root(SCREEN_WIDTH, SCREEN_HEIGHT,
+                              'pyroguecod tutorial', False)
+
+    # Init an off-screen console to be used as a buffer.
+    con = libtcod.console_new(SCREEN_WIDTH, SCREEN_HEIGHT)
+
+    # Set FPS. This does not have an effect for turn-based games.
+    libtcod.sys_set_fps(LIMIT_FPS)
+
+    # Init the status bar console panel.
+    panel = libtcod.console_new(SCREEN_WIDTH, PANEL_HEIGHT)
+
+    new_game()
+    play_game()
