@@ -76,7 +76,8 @@ class Object(object):
 
     """
     def __init__(self, x, y, char, name, color, blocks=False,
-                 always_visible=False, fighter=None, ai=None, item=None):
+                 always_visible=False, fighter=None, ai=None, item=None,
+                 equipment=None):
         self.name = name
         self.blocks = blocks
         self.x = x
@@ -97,6 +98,14 @@ class Object(object):
 
         self.item = item
         if self.item:
+            self.item.owner = self
+
+        self.equipment = equipment
+        if self.equipment:
+            self.equipment.owner = self
+
+            # An equipment is also an item
+            self.item = Item()
             self.item.owner = self
 
     def move(self, dx, dy):
@@ -294,6 +303,11 @@ class Item(object):
     def use(self):
         global inventory
 
+        # Special case for equipments
+        if self.owner.equipment:
+            self.owner.equipment.toggle_equip()
+            return
+
         if not self.use_function:
             message('The {} cannot be used.'.format(self.owner.name))
         else:
@@ -311,6 +325,45 @@ class Item(object):
         self.owner.x = player.x
         self.owner.y = player.y
         message('You dropped the {}.'.format(self.owner.name), libtcod.yellow)
+
+
+class Equipment(object):
+    """ Equipment Object component.
+
+    An object that can be equipped, yielding bonuses. Automatically adds the
+    Item component.
+
+    """
+    owner = None
+
+    def __init__(self, slot):
+        self.slot = slot
+        self.is_equipped = False
+
+    def toggle_equip(self):
+        if self.is_equipped:
+            self.dequip()
+        else:
+            self.equip()
+
+    def equip(self):
+        """ Equip object and show a message about it.
+
+        """
+        self.is_equipped = True
+        message('Equipped {} on {}'.format(self.owner.name, self.slot),
+                libtcod.light_green)
+
+    def dequip(self):
+        """ Unequip object and show a message about it.
+
+        """
+        if not self.is_equipped:
+            return
+
+        self.is_equipped = False
+        message('Removed {} on {}'.format(self.owner.name, self.slot),
+                libtcod.light_yellow)
 
 
 class Rect(object):
@@ -452,6 +505,7 @@ def place_objects(room):
     # chance of each item
     item_chances = {
         'healing': 35,
+        'sword': 25,
         'lightning': from_dungeon_level([
             (25, 4),
         ]),
@@ -510,6 +564,12 @@ def place_objects(room):
                 item_component = Item(use_function=cast_heal)
                 item = Object(x, y, '!', name, libtcod.violet,
                               always_visible=True, item=item_component)
+            elif choice == 'sword':
+                name = 'sword'
+                equipment_component = Equipment(slot='right hand')
+                item = Object(x, y, '/', name, libtcod.sky,
+                              always_visible=True,
+                              equipment=equipment_component)
             elif choice == 'lightning':
                 name = 'scroll of lightning bolt'
                 item_component = Item(use_function=cast_lightning)
@@ -577,7 +637,7 @@ def check_level_up():
             'Agility (+1 defense, from {})'.format(player.fighter.defense)
         ]
 
-        while choice == None:
+        while choice is None:
             choice = menu('Level up! Choose a stat to raise:\n', choices,
                           LEVEL_SCREEN_WIDTH)
 
@@ -964,7 +1024,7 @@ def render_all():
 
     """
     global con, map, fov_recompute, fov_map, objects, player, panel,\
-           dungeon_level
+        dungeon_level
 
     # Recompute the FOV and reset the flag when the player moves.
     if fov_recompute:
@@ -1125,7 +1185,7 @@ def save_game():
 
     """
     global map, objects, player, inventory, game_msgs, game_state,\
-           dungeon_level, stairs
+        dungeon_level, stairs
 
     file = shelve.open('savegame', 'n')
     file['map'] = map
@@ -1144,7 +1204,7 @@ def load_game():
 
     """
     global map, objects, player, inventory, game_msgs, game_state,\
-           dungeon_level, stairs
+        dungeon_level, stairs
 
     file = shelve.open('savegame', 'r')
     map = file['map']
