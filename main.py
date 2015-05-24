@@ -72,14 +72,15 @@ class Object(object):
     represented by a character on the screen.
 
     """
-    def __init__(self, x, y, char, name, color, blocks=False, fighter=None,
-                 ai=None, item=None):
+    def __init__(self, x, y, char, name, color, blocks=False,
+                 always_visible=False, fighter=None, ai=None, item=None):
         self.name = name
         self.blocks = blocks
         self.x = x
         self.y = y
         self.char = char
         self.color = color
+        self.always_visible = always_visible
 
         self.fighter = fighter
         if self.fighter:
@@ -153,9 +154,10 @@ class Object(object):
             at its position only when its within the FOV.
 
         """
-        global con
+        global con, map
 
-        if in_fov(self.x, self.y):
+        if ((in_fov(self.x, self.y)) or (self.always_visible and
+                                         map[self.x][self.y].explored)):
             libtcod.console_set_default_foreground(con, self.color)
             libtcod.console_put_char(con, self.x, self.y, self.char,
                                      libtcod.BKGND_NONE)
@@ -423,25 +425,26 @@ def place_objects(room):
                 # create a healing potion
                 item_component = Item(use_function=cast_heal)
                 item = Object(x, y, '!', 'healing potion', libtcod.violet,
-                              item=item_component)
+                              always_visible=True, item=item_component)
             elif roll < 70 + 10:
                 # %10 chance to create a lightning scroll
                 name = 'scroll of lightning bolt'
                 item_component = Item(use_function=cast_lightning)
                 item = Object(x, y, '#', name, libtcod.light_yellow,
-                              item=item_component)
+                              always_visible=True, item=item_component)
             elif roll < 70 + 10 + 10:
                 # %10 chance to create a fireball scroll
                 name = 'scroll of fireball'
                 item_component = Item(use_function=cast_fireball)
                 item = Object(x, y, '#', name, libtcod.light_yellow,
-                              item=item_component)
+                              always_visible=True, item=item_component)
             else:
                 # %10 chance to create a confuse scroll
                 name = 'scroll of confusion'
                 item_component = Item(use_function=cast_confuse)
                 item = Object(x, y, '#', name, libtcod.light_yellow,
-                              item=item_component)
+                              always_visible=True, item=item_component)
+
             objects.append(item)
             item.send_to_back()
 
@@ -738,10 +741,7 @@ def handle_keys():
     """ Handle key input from the user.
 
     """
-    global game_state
-    global key
-    global objects
-    global player
+    global game_state, key, objects, player, stairs
 
     if key.vk == libtcod.KEY_ENTER and key.lalt:
         # Alt+Enter: Toggles fullscreen
@@ -795,6 +795,10 @@ def handle_keys():
                                              'cancel.\n')
                 if chosen_item:
                     chosen_item.drop()
+            if key_char == '<':
+                # go down the stairs, if the player is on top of one.
+                if stairs.x == player.x and stairs.y == player.y:
+                    next_level()
 
             return 'didnt-take-turn'
 
@@ -831,13 +835,8 @@ def render_all():
     """ Draw the game objects and the map.
 
     """
-    global con
-    global map
-    global fov_recompute
-    global fov_map
-    global objects
-    global player
-    global panel
+    global con, map, fov_recompute, fov_map, objects, player, panel,\
+           dungeon_level
 
     # Recompute the FOV and reset the flag when the player moves.
     if fov_recompute:
@@ -898,6 +897,10 @@ def render_all():
     # Show the player's stats
     render_bar(1, 1, BAR_WIDTH, 'HP', player.fighter.hp, player.fighter.max_hp,
                libtcod.light_red, libtcod.darker_red)
+
+    # Show the dungeon level
+    libtcod.console_print_ex(panel, 1, 3, libtcod.BKGND_NONE, libtcod.LEFT,
+                             'Dungeon level {}'.format(dungeon_level))
 
     # Display names of objects under the mouse.
     libtcod.console_set_default_foreground(panel, libtcod.light_gray)
@@ -993,7 +996,8 @@ def save_game():
     just store the index of the `player` object in the `objects` list.
 
     """
-    global map, objects, player, inventory, game_msgs, game_state
+    global map, objects, player, inventory, game_msgs, game_state,\
+           dungeon_level
 
     file = shelve.open('savegame', 'n')
     file['map'] = map
@@ -1002,6 +1006,7 @@ def save_game():
     file['inventory'] = inventory
     file['game_msgs'] = game_msgs
     file['game_state'] = game_state
+    file['dungeon_level'] = dungeon_level
     file.close()
 
 
@@ -1009,7 +1014,8 @@ def load_game():
     """ Loads the game
 
     """
-    global map, objects, player, inventory, game_msgs, game_state
+    global map, objects, player, inventory, game_msgs, game_state,\
+           dungeon_level
 
     file = shelve.open('savegame', 'r')
     map = file['map']
@@ -1018,8 +1024,26 @@ def load_game():
     inventory = file['inventory']
     game_msgs = file['game_msgs']
     game_state = file['game_state']
+    dungeon_level = file['dungeon_level']
     file.close()
 
+    initialize_fov()
+
+
+def next_level():
+    """ Advance to the next level
+
+    """
+    global player, dungeon_level
+    message('You take a moment to rest, and recover your strength.',
+            libtcod.light_violet)
+    player.fighter.heal(player.fighter.max_hp / 2)  # heals by 50% of max_hp
+
+    message('After a rare moment of peace, you descend deeper into the heart '
+            'of the Underdeep...', libtcod.red)
+
+    dungeon_level += 1
+    make_map()
     initialize_fov()
 
 
@@ -1032,7 +1056,7 @@ def make_map():
     two with a tunnel. Repeat.
 
     """
-    global map, player, objects
+    global map, player, objects, stairs
 
     # Init list of game objects.
     objects = [player]
@@ -1095,6 +1119,12 @@ def make_map():
             rooms.append(new_room)
             num_rooms += 1
 
+    # create stairs at the center of the last room
+    stairs = Object(new_x, new_y, '<', 'stairs', libtcod.white,
+                    always_visible=True)
+    objects.append(stairs)
+    stairs.send_to_back()
+
 
 def initialize_fov():
     """ Create the FOV map according to the generated map.
@@ -1119,7 +1149,7 @@ def new_game():
     """ Initalize variables on a new game
 
     """
-    global player, inventory, game_msgs, game_state
+    global player, inventory, game_msgs, game_state, dungeon_level
 
     game_state = 'playing'
     inventory = []
@@ -1132,6 +1162,7 @@ def new_game():
                     fighter=fighter_component)
 
     # Generate map coordinates.
+    dungeon_level = 1
     make_map()
 
     # Set the welcome message.
